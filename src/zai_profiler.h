@@ -12,15 +12,14 @@
 
 typedef struct zai_profiler_entry
 {
-    s8 *name;
-    s8 *file;
-    u32 line;
-
-    u32 counter;
     f64 time_ms_last;
     f64 time_ms_min;
     f64 time_ms_max;
     f64 time_ms_total;
+    u32 line;
+    u32 counter;
+    s8 *name;
+    s8 *file;
 
 } zai_profiler_entry;
 
