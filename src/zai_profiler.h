@@ -103,11 +103,13 @@ ZAI_API ZAI_INLINE void zai_profiler_end(s8 *name)
             entry->time_ms_min = time_ms_last;
             entry->time_ms_max = time_ms_last;
         }
-        else if (time_ms_last < entry->time_ms_min)
+
+        if (time_ms_last < entry->time_ms_min)
         {
             entry->time_ms_min = time_ms_last;
         }
-        else if (time_ms_last > entry->time_ms_max)
+
+        if (time_ms_last > entry->time_ms_max)
         {
             entry->time_ms_max = time_ms_last;
         }
