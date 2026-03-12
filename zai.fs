@@ -103,17 +103,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
             else if (hitStored > 0u) // SDF Occupied
             {
                 hitAtlasOff = getAtlasOffset(hitStored);
+
                 float localT = t;
                 float brickExitT = min(min(tMax.x, tMax.y), tMax.z);
                 
                 // Inner Loop: Sphere Tracing inside one brick
-                vec3 pStart = (ro + rd * localT - uGridStart) * uInvCellSize;
+                vec3 pStartGrid = (ro + rd * localT - uGridStart) * uInvCellSize;
+                vec3 uvBase = hitAtlasOff - vec3(brickCoord * BRICK_SIZE) * uInvAtlasSize;
+                vec3 uvPos = uvBase + pStartGrid * uInvAtlasSize;
+                vec3 uvDir = rdGrid * uInvAtlasSize;
                  
                 for(int j = 0; j < 32; j++) {
-                    float d = sampleAtlas(pStart, hitAtlasOff, brickCoord);
+                    float d = texture(uAtlas, uvPos).r * uTruncation;
                     if (d < EPS) { hitT = localT; break; }
                     localT += d;
-                    pStart += rdGrid * d;
+                    uvPos += uvDir * d;
                     if (localT > brickExitT) break;
                 }
                 if (hitT > 0.0) break;
