@@ -124,13 +124,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
             }
 
             // Standard DDA Step to next brick
-            if (tMax.x < tMax.y) {
-                if (tMax.x < tMax.z) { t = tMax.x; tMax.x += tDelta.x; brickCoord.x += int(rdSign.x); }
-                else { t = tMax.z; tMax.z += tDelta.z; brickCoord.z += int(rdSign.z); }
-            } else {
-                if (tMax.y < tMax.z) { t = tMax.y; tMax.y += tDelta.y; brickCoord.y += int(rdSign.y); }
-                else { t = tMax.z; tMax.z += tDelta.z; brickCoord.z += int(rdSign.z); }
-            }
+            vec3 stepMask;
+            stepMask.x = step(tMax.x, tMax.y) * step(tMax.x, tMax.z);
+            stepMask.y = step(tMax.y, tMax.x) * step(tMax.y, tMax.z) * (1.0 - stepMask.x);
+            stepMask.z = 1.0 - stepMask.x - stepMask.y;
+
+            t = dot(tMax, stepMask); 
+            tMax += tDelta * stepMask;
+            brickCoord += ivec3(rdSign * stepMask);
+
             if (t > tFar) break;
         }
 
