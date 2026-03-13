@@ -1,10 +1,6 @@
 # zai
 A C89 standard compliant, nostdlib (no C Standard Library) Zai Engine.
 
-<p align="center">
-<a href="https://github.com/nickscha/zai"><img src="assets/zai.png" width="300"></a>
-</p>
-
 > [!WARNING]
 > THIS PROJECT IS A WORK IN PROGRESS! ANYTHING CAN CHANGE AT ANY MOMENT WITHOUT ANY NOTICE! USE THIS PROJECT AT YOUR OWN RISK!
 
