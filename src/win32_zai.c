@@ -1554,7 +1554,7 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
     static u32 dhh = 20;
     static f32 slider_val = 0.5f;
     static f32 ui_scale = 0.8f;
-    static u8 collapsed = 0;
+    static u8 collapsed = 1;
 
     ui_context.mouse_x = (u16)(state->mouse_x < 0 ? 0 : state->mouse_x);
     ui_context.mouse_y = (u16)((i32)state->window_height - (state->mouse_y < 0 ? 0 : state->mouse_y));
