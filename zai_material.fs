@@ -59,9 +59,14 @@ vec3 debugColor(ivec3 p) {
     return vec3(v & 255u) / 255.0;
 }
 
-void main()
-{
-    vec2 uv = (2.0 * gl_FragCoord.xy - iResolution.xy) / iResolution.y;
+float hash12(vec2 p) {
+    vec3 p3  = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 uv = (2.0 * fragCoord - iResolution.xy) / iResolution.y;
     vec3 ro = camera_position; // ray origin
     vec3 rd = normalize(uv.x * camera_right + uv.y * camera_up + camera_forward_scaled); // ray direction
 
@@ -108,12 +113,12 @@ void main()
                 float localT = t;
                 float brickExitT = min(min(tMax.x, tMax.y), tMax.z);
                 
+                // Inner Loop: Sphere Tracing inside one brick
                 vec3 pStartGrid = (ro + rd * localT - uGridStart) * uInvCellSize;
                 vec3 uvBase = hitAtlasOff - vec3(brickCoord * BRICK_SIZE) * uInvAtlasSize;
                 vec3 uvPos = uvBase + pStartGrid * uInvAtlasSize;
                 vec3 uvDir = rdGrid * uInvAtlasSize;
                  
-                // Inner Loop: Sphere Tracing inside one brick
                 for(int j = 0; j < 32; j++) {
                     float d = texture(uAtlas, uvPos).r * uTruncation;
                     if (d < EPS) { hitT = localT; break; }
@@ -140,7 +145,31 @@ void main()
         if (hitT > 0.0) {
             vec3 pos = ro + rd * hitT;
             vec3 gP = (pos - uGridStart) * uInvCellSize;
+
+            vec3 localPos = gP - vec3(brickCoord * BRICK_SIZE);
+            vec3 atlasPos = (hitAtlasOff / uInvAtlasSize) + localPos;
             
+            vec3 samplePos = atlasPos - 0.5; 
+            ivec3 base = ivec3(floor(samplePos));
+            vec3 f = fract(samplePos);
+
+            #define GET_COL(off) texture(uPalette, (float(texelFetch(uMaterial, base + off, 0).r) * 255.0 + 0.5) * INV_256).rgb
+
+            vec3 c000 = GET_COL(ivec3(0,0,0));
+            vec3 c100 = GET_COL(ivec3(1,0,0));
+            vec3 c010 = GET_COL(ivec3(0,1,0));
+            vec3 c110 = GET_COL(ivec3(1,1,0));
+            vec3 c001 = GET_COL(ivec3(0,0,1));
+            vec3 c101 = GET_COL(ivec3(1,0,1));
+            vec3 c011 = GET_COL(ivec3(0,1,1));
+            vec3 c111 = GET_COL(ivec3(1,1,1));
+
+            vec3 material = mix(
+                mix(mix(c000, c100, f.x), mix(c010, c110, f.x), f.y),
+                mix(mix(c001, c101, f.x), mix(c011, c111, f.x), f.y),
+                f.z
+            );
+
             vec2 k = vec2(1.0, -1.0);
             float e = 0.1;
 
@@ -151,15 +180,15 @@ void main()
                 k.xxx * sampleAtlas(gP + k.xxx*e, hitAtlasOff, brickCoord)
             );
 
-            vec3 material = sampleMaterial(gP, hitAtlasOff, brickCoord);
+            //vec3 material = sampleMaterial(gP, hitAtlasOff, brickCoord);
             float diffuse = clamp(dot(normal, normalize(vec3(0.7, 0.9, 0.3))), 0.0, 1.0);
             vec3 ambient  = vec3(0.2, 0.3, 0.4);
             vec3 sun      = vec3(0.8, 0.7, 0.5);
 
             //col = material * (dif + 0.15);
             //col = vec3(0.2, 0.3, 0.4) + dif * vec3(0.8, 0.7, 0.5);           
-            //col = material * (ambient + diffuse * sun);
-            col = ambient + diffuse * sun * normal;
+            col = material * (ambient + diffuse * sun);
+            //col = ambient + diffuse * sun * normal;
             //col = ambient + diffuse * sun;
             
             /* 
@@ -171,5 +200,11 @@ void main()
         }
     }
 
-    FragColor = vec4(pow(col, vec3(0.4545)), 1.0);
+    fragColor = vec4(pow(col, vec3(0.4545)), 1.0);
+}
+
+void main()
+{
+  vec2 fragCoord = gl_FragCoord.xy;
+  mainImage(FragColor, fragCoord);
 }
