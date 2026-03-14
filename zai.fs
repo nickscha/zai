@@ -3,6 +3,7 @@
 out vec4 FragColor;
 
 uniform vec3  iResolution;
+uniform float iTime;
 uniform usampler3D uBrickMap;
 uniform sampler3D  uAtlas;
 uniform sampler3D uMaterial;
@@ -34,6 +35,30 @@ vec3 debugColor(ivec3 p) {
     v ^= v >> 16u;
     v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
     return vec3(v & 255u) / 255.0;
+}
+
+void drawAtlasDebug(inout vec3 col, vec2 fragCoord) {
+    float size = iResolution.y * 0.4; // Debug window is 40% of screen height
+    vec2 padding = vec2(10.0);
+    vec2 bMin = iResolution.xy - vec2(size) - padding;
+    vec2 bMax = iResolution.xy - padding;
+
+    if (fragCoord.x > bMin.x && fragCoord.x < bMax.x && 
+        fragCoord.y > bMin.y && fragCoord.y < bMax.y) {
+        
+        vec2 uv = (fragCoord - bMin) / size;
+        float zSlice = mod(iTime * 0.5, 1.0);
+        float val = textureLod(uAtlas, vec3(uv, zSlice), 0.0).r;
+        vec3 debugCol = vec3(val);
+        float border = 2.0;
+        
+        if (fragCoord.x < bMin.x + border || fragCoord.x > bMax.x - border ||
+            fragCoord.y < bMin.y + border || fragCoord.y > bMax.y - border) {
+            debugCol = vec3(0.1, 0.1, 0.1);
+        }
+
+        col = debugCol;
+    }
 }
 
 void main()
@@ -156,6 +181,8 @@ void main()
             */
         }
     }
+
+    /*drawAtlasDebug(col, gl_FragCoord.xy);*/
 
     FragColor = vec4(pow(col, vec3(0.4545)), 1.0);
 }

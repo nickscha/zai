@@ -88,7 +88,7 @@ static zai_sdf_aabb sdf_scene_aabb;
 #define ZAI_SDF_MATERIAL_COUNT 256
 static u8 zai_sdf_scene_materials[ZAI_SDF_MATERIAL_COUNT * 3];
 
-ZAI_API void zai_sdf_scene_build(void)
+ZAI_API ZAI_INLINE void zai_sdf_scene_build(void)
 {
     zai_sdf_primitive sphere = {0};
     zai_sdf_primitive box = {0};
@@ -159,7 +159,7 @@ ZAI_API void zai_sdf_scene_build(void)
     zai_sdf_scene_materials[14] = 199;
 }
 
-ZAI_API zai_grid_data zai_sdf_scene(zai_vec3 position, void *user_data)
+ZAI_API ZAI_INLINE zai_grid_data zai_sdf_scene(zai_vec3 position, void *user_data)
 {
     f32 ground = position.y - (-0.25f);
 
