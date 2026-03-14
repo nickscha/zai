@@ -144,13 +144,12 @@ void main()
             vec2 k = vec2(1.0, -1.0);
             float e = 0.1;
 
-            float d = sampleAtlas(gP, hitAtlasOff, brickCoord);
-
-            vec3 normal = normalize(vec3(
-                sampleAtlas(gP + vec3(e,0,0), hitAtlasOff, brickCoord) - d,
-                sampleAtlas(gP + vec3(0,e,0), hitAtlasOff, brickCoord) - d,
-                sampleAtlas(gP + vec3(0,0,e), hitAtlasOff, brickCoord) - d
-            ));
+            vec3 normal = normalize(
+                k.xyy * sampleAtlas(gP + k.xyy*e, hitAtlasOff, brickCoord) +
+                k.yyx * sampleAtlas(gP + k.yyx*e, hitAtlasOff, brickCoord) +
+                k.yxy * sampleAtlas(gP + k.yxy*e, hitAtlasOff, brickCoord) +
+                k.xxx * sampleAtlas(gP + k.xxx*e, hitAtlasOff, brickCoord)
+            );
 
             vec3 material = sampleMaterial(gP, hitAtlasOff, brickCoord);
             float diffuse = clamp(dot(normal, normalize(vec3(0.7, 0.9, 0.3))), 0.0, 1.0);
