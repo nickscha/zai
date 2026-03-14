@@ -124,14 +124,17 @@ void main()
             
             vec3 uvBase = hitAtlasOff - vec3(brickCoord * 8) * uInvAtlasSize;
             vec3 baseUV = uvBase + gP * uInvAtlasSize;
-            vec3 uvE = vec3(0.1) * uInvAtlasSize; 
 
-            float d = textureLod(uAtlas, baseUV, 0.0).r;
-            vec3 normal = normalize(vec3(
-                textureLod(uAtlas, baseUV + vec3(uvE.x, 0.0, 0.0), 0.0).r - d,
-                textureLod(uAtlas, baseUV + vec3(0.0, uvE.y, 0.0), 0.0).r - d,
-                textureLod(uAtlas, baseUV + vec3(0.0, 0.0, uvE.z), 0.0).r - d
-            ));
+            float e = 0.1; 
+            vec3 ee = vec3(e) * uInvAtlasSize; 
+            vec2 k = vec2(1.0, -1.0);            
+
+            vec3 normal = normalize(
+                k.xyy * textureLod(uAtlas, baseUV + k.xyy * ee, 0.0).r +
+                k.yyx * textureLod(uAtlas, baseUV + k.yyx * ee, 0.0).r +
+                k.yxy * textureLod(uAtlas, baseUV + k.yxy * ee, 0.0).r +
+                k.xxx * textureLod(uAtlas, baseUV + k.xxx * ee, 0.0).r
+            );
 
             float matIDNormalized = textureLod(uMaterial, baseUV, 0.0).r;
             float paletteCoord = (matIDNormalized * 255.0 + 0.5) * INV_256;
