@@ -59,12 +59,6 @@ vec3 debugColor(ivec3 p) {
     return vec3(v & 255u) / 255.0;
 }
 
-float hash12(vec2 p) {
-    vec3 p3  = fract(vec3(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
-
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = (2.0 * fragCoord - iResolution.xy) / iResolution.y;
     vec3 ro = camera_position; // ray origin
@@ -145,52 +139,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
         if (hitT > 0.0) {
             vec3 pos = ro + rd * hitT;
             vec3 gP = (pos - uGridStart) * uInvCellSize;
-
-            #define GET_COL(off) texture(uPalette, (float(texelFetch(uMaterial, base + off, 0).r) * 255.0 + 0.5) * INV_256).rgb
-
-            vec3 localPos = gP - vec3(brickCoord * BRICK_SIZE);
-            vec3 atlasPos = (hitAtlasOff / uInvAtlasSize) + localPos;
-            vec3 samplePos = atlasPos - 0.5;
-            ivec3 base = ivec3(floor(samplePos));
-            vec3 f = fract(samplePos);
-
-            vec3 c000 = GET_COL(ivec3(0,0,0));
-            vec3 c111 = GET_COL(ivec3(1,1,1));
-            vec3 mid1, mid2;
-            float w1, w2, w3, w4;
-
-            if (f.x >= f.y) {
-                if (f.y >= f.z) { // x > y > z
-                    mid1 = GET_COL(ivec3(1,0,0));
-                    mid2 = GET_COL(ivec3(1,1,0));
-                    w1 = 1.0 - f.x; w2 = f.x - f.y; w3 = f.y - f.z; w4 = f.z;
-                } else if (f.x >= f.z) { // x > z > y
-                    mid1 = GET_COL(ivec3(1,0,0));
-                    mid2 = GET_COL(ivec3(1,0,1));
-                    w1 = 1.0 - f.x; w2 = f.x - f.z; w3 = f.z - f.y; w4 = f.y;
-                } else { // z > x > y
-                    mid1 = GET_COL(ivec3(0,0,1));
-                    mid2 = GET_COL(ivec3(1,0,1));
-                    w1 = 1.0 - f.z; w2 = f.z - f.x; w3 = f.x - f.y; w4 = f.y;
-                }
-            } else {
-                if (f.y < f.z) { // z > y > x
-                    mid1 = GET_COL(ivec3(0,0,1));
-                    mid2 = GET_COL(ivec3(0,1,1));
-                    w1 = 1.0 - f.z; w2 = f.z - f.y; w3 = f.y - f.x; w4 = f.x;
-                } else if (f.x < f.z) { // y > z > x
-                    mid1 = GET_COL(ivec3(0,1,0));
-                    mid2 = GET_COL(ivec3(0,1,1));
-                    w1 = 1.0 - f.y; w2 = f.y - f.z; w3 = f.z - f.x; w4 = f.x;
-                } else { // y > x > z
-                    mid1 = GET_COL(ivec3(0,1,0));
-                    mid2 = GET_COL(ivec3(1,1,0));
-                    w1 = 1.0 - f.y; w2 = f.y - f.x; w3 = f.x - f.z; w4 = f.z;
-                }
-            }
-
-            vec3 material = c000 * w1 + mid1 * w2 + mid2 * w3 + c111 * w4;
-
+            
             vec2 k = vec2(1.0, -1.0);
             float e = 0.1;
 
@@ -201,15 +150,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
                 k.xxx * sampleAtlas(gP + k.xxx*e, hitAtlasOff, brickCoord)
             );
 
-            //vec3 material = sampleMaterial(gP, hitAtlasOff, brickCoord);
+            vec3 material = sampleMaterial(gP, hitAtlasOff, brickCoord);
             float diffuse = clamp(dot(normal, normalize(vec3(0.7, 0.9, 0.3))), 0.0, 1.0);
             vec3 ambient  = vec3(0.2, 0.3, 0.4);
             vec3 sun      = vec3(0.8, 0.7, 0.5);
 
             //col = material * (dif + 0.15);
             //col = vec3(0.2, 0.3, 0.4) + dif * vec3(0.8, 0.7, 0.5);           
-            col = material * (ambient + diffuse * sun);
-            //col = ambient + diffuse * sun * normal;
+            //col = material * (ambient + diffuse * sun);
+            col = ambient + diffuse * sun * normal;
             //col = ambient + diffuse * sun;
             
             /* 
