@@ -60,11 +60,6 @@ You can now run the `win32_zai.exe` program.
 win32_zai_x64.exe
 ```
 
-## Roadmap
-
-For the next release of **ZAI** the following features are planend.
-
-
 ## "nostdlib" Motivation & Purpose
 
 nostdlib is a lightweight, minimalistic approach to C development that removes dependencies on the standard library. The motivation behind this project is to provide developers with greater control over their code by eliminating unnecessary overhead, reducing binary size, and enabling deployment in resource-constrained environments.
