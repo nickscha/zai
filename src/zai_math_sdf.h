@@ -40,6 +40,14 @@ ZAI_API ZAI_INLINE f32 zai_sdf_box_rounded(zai_vec3 position, zai_vec3 base, f32
     return lq + mq - radius;
 }
 
+ZAI_API ZAI_INLINE f32 zai_sdf_ellipsoid(zai_vec3 position, zai_vec3 radius)
+{
+    f32 k0 = zai_vec3_length(zai_vec3_div(position, radius));
+    f32 k1 = zai_vec3_length(zai_vec3_div(position, zai_vec3_mul(radius, radius)));
+
+    return k0 * (k0 - 1.0f) / k1;
+}
+
 ZAI_API ZAI_INLINE f32 zai_sdf_box_frame(zai_vec3 position, zai_vec3 base, f32 edge_thickness)
 {
     zai_vec3 p = zai_vec3_sub(zai_vec3_abs(position), base);
@@ -54,14 +62,6 @@ ZAI_API ZAI_INLINE f32 zai_sdf_box_frame(zai_vec3 position, zai_vec3 base, f32 e
     f32 m3 = zai_minf(zai_maxf(q.x, zai_maxf(q.y, p.z)), 0.0f);
 
     return zai_minf(zai_minf(l1 + m1, l2 + m2), l3 + m3);
-}
-
-ZAI_API ZAI_INLINE f32 zai_sdf_ellipsoid(zai_vec3 position, zai_vec3 radius)
-{
-    f32 k0 = zai_vec3_length(zai_vec3_div(position, radius));
-    f32 k1 = zai_vec3_length(zai_vec3_div(position, zai_vec3_mul(radius, radius)));
-
-    return k0 * (k0 - 1.0f) / k1;
 }
 
 /* #############################################################################
