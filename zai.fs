@@ -88,7 +88,7 @@ void main()
         
         vec3 rdSign = sign(rd);
         ivec3 iRdSign = ivec3(rdSign);
-        vec3 rdGrid = rd * uInvCellSize;
+        vec3 uvDir = rd * uInvCellSize * uInvAtlasSize;
         vec3 tDelta = abs((fBRICK_SIZE * uCellSize) * invRd);
         vec3 tMax = ((vec3(brickCoord) + max(rdSign, 0.0)) * fBRICK_SIZE - gridP) * uCellSize * invRd + t;
 
@@ -116,7 +116,7 @@ void main()
                 
                 vec3 pStartGrid = (ro + rd * localT - uGridStart) * uInvCellSize;
                 vec3 uvPos = hitAtlasOff - vec3(brickCoord * 8) * uInvAtlasSize + pStartGrid * uInvAtlasSize;
-                vec3 uvDir = rdGrid * uInvAtlasSize;
+              
                  
                 // Inner Loop: Sphere Tracing
                 for(int j = 0; j < 32; j++) {
