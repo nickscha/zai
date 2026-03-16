@@ -17,6 +17,7 @@ typedef enum zai_sdf_primitive_id
     ZAI_SDF_PRIMITIVE_BOX_FRAME,
     ZAI_SDF_PRIMITIVE_ELLIPSOID,
     ZAI_SDF_PRIMITIVE_OCTAHEDRON,
+    ZAI_SDF_PRIMITIVE_CAPSULE_VERTICAL,
     ZAI_SDF_PRIMITIVE_COUNT
 
 } zai_sdf_primitive_id;
@@ -77,11 +78,17 @@ typedef struct zai_sdf_primitive
             f32 scale;
         } octahedron;
 
+        struct
+        {
+            f32 height;
+            f32 radius;
+        } capsule_vertical;
+
     } attributes;
 
 } zai_sdf_primitive;
 
-#define ZAI_SDF_PRIMITIVE_COUNT 5
+#define ZAI_SDF_PRIMITIVE_COUNT 6
 static zai_sdf_primitive primitives[ZAI_SDF_PRIMITIVE_COUNT];
 static zai_sdf_aabb sdf_scene_aabb;
 
@@ -95,6 +102,7 @@ ZAI_API ZAI_INLINE void zai_sdf_scene_build(void)
     zai_sdf_primitive ellipsoid = {0};
     zai_sdf_primitive octahedron = {0};
     zai_sdf_primitive box_frame = {0};
+    zai_sdf_primitive capsule_vertical = {0};
 
     sphere.primitive_id = ZAI_SDF_PRIMITIVE_SPHERE;
     sphere.material_id = 1;
@@ -122,11 +130,17 @@ ZAI_API ZAI_INLINE void zai_sdf_scene_build(void)
     box_frame.attributes.box_frame.base = zai_vec3_init(0.25f, 0.25f, 0.25f);
     box_frame.attributes.box_frame.edge_thickness = 0.025f;
 
+    capsule_vertical.primitive_id = ZAI_SDF_PRIMITIVE_CAPSULE_VERTICAL;
+    capsule_vertical.transform.position = zai_vec3_init(0.5f, 0.5f, -1.5f);
+    capsule_vertical.attributes.capsule_vertical.height = 0.5f;
+    capsule_vertical.attributes.capsule_vertical.radius = 0.075f;
+
     primitives[0] = sphere;
     primitives[1] = box;
     primitives[2] = ellipsoid;
     primitives[3] = octahedron;
     primitives[4] = box_frame;
+    primitives[5] = capsule_vertical;
 
     /* Set simple bounding box */
     sdf_scene_aabb.min = zai_vec3_init(-2.0f, -1.0f, -2.0f);
@@ -207,6 +221,11 @@ ZAI_API ZAI_INLINE zai_grid_data zai_sdf_scene(zai_vec3 position, void *user_dat
             case ZAI_SDF_PRIMITIVE_OCTAHEDRON:
             {
                 primitive_distance = zai_sdf_octahedron(primitive_pos, primitive->attributes.octahedron.scale);
+            }
+            break;
+            case ZAI_SDF_PRIMITIVE_CAPSULE_VERTICAL:
+            {
+                primitive_distance = zai_sdf_capsule_vertical(primitive_pos, primitive->attributes.capsule_vertical.height, primitive->attributes.capsule_vertical.radius);
             }
             break;
             default:

@@ -18,6 +18,12 @@ ZAI_API ZAI_INLINE f32 zai_sdf_octahedron(zai_vec3 position, f32 scale)
     return (position.x + position.y + position.z - scale) * 0.57735027f;
 }
 
+ZAI_API ZAI_INLINE f32 zai_sdf_capsule_vertical(zai_vec3 position, f32 height, f32 radius)
+{
+    position.y -= zai_clampf(position.y, 0.0f, height);
+    return zai_vec3_length(position) - radius;
+}
+
 ZAI_API ZAI_INLINE f32 zai_sdf_box(zai_vec3 position, zai_vec3 base)
 {
     zai_vec3 q = zai_vec3_sub(zai_vec3_abs(position), base);
