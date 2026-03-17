@@ -86,6 +86,31 @@ ZAI_API ZAI_INLINE void zai_profiler_begin(s8 *name, s8 *file, u32 line)
     }
 }
 
+ZAI_API ZAI_INLINE void zai_profiler_count(s8 *name, s8 *file, u32 line)
+{
+    u32 entry_id = zai_profiler_find_entry(name);
+
+    if (entry_id == ZAI_PROFILER_ENTRY_INVALID)
+    {
+        zai_profiler_entry entry = {0};
+        entry.name = name;
+        entry.file = file;
+        entry.line = line;
+        entry.counter += 1;
+
+        if (zai_profiler_entries_count >= ZAI_PROFILER_MAX_ENTRIES)
+        {
+            return;
+        }
+
+        zai_profiler_entries[zai_profiler_entries_count++] = entry;
+    }
+    else
+    {
+        zai_profiler_entries[entry_id].counter += 1;
+    }
+}
+
 ZAI_API ZAI_INLINE void zai_profiler_end(s8 *name)
 {
     f64 time_ms_end = zai_profiler_time_ms();
@@ -121,5 +146,6 @@ ZAI_API ZAI_INLINE void zai_profiler_end(s8 *name)
 
 #define ZAI_PROFILER_BEGIN(name) zai_profiler_begin(#name, __FILE__, __LINE__)
 #define ZAI_PROFILER_END(name) zai_profiler_end(#name)
+#define ZAI_PROFILER_COUNT(name) zai_profiler_count(#name, __FILE__, __LINE__)
 
 #endif /* ZAI_PROFILER_H */
