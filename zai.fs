@@ -150,8 +150,7 @@ void main()
             vec3 uvBase = hitAtlasOff - vec3(brickCoord * 8) * uInvAtlasSize;
             vec3 baseUV = uvBase + gP * uInvAtlasSize;
 
-            float e = 0.1; 
-            vec3 ee = vec3(e) * uInvAtlasSize; 
+            vec3 ee = vec3(0.1) * uInvAtlasSize; 
             vec2 k = vec2(1.0, -1.0);            
 
             vec3 normal = normalize(
