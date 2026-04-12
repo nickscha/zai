@@ -1038,8 +1038,10 @@ ZAI_API ZAI_INLINE i32 opengl_create_context(win32_zai_state *state)
 
   state->device_context = GetDC(state->window_handle);
 
-  /* Load wgl and common opengl function */
+  /* Load wgl function */
   win32_zai_opengl_load_functions(win32_opengl_load_function, 0);
+
+  /* Load common opengl functions (platform independant) */
   zai_opengl_load_functions(win32_opengl_load_function);
 
   if (opengl_failed_function_load_count > 0)
