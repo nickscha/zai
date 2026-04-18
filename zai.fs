@@ -38,7 +38,7 @@ vec3 debugColor(ivec3 p) {
 }
 
 void drawAtlasDebug(inout vec3 col, vec2 fragCoord) {
-    float size = iResolution.y * 0.4; // Debug window is 40% of screen height
+    float size = iResolution.y * 0.25; // Debug window is 40% of screen height
     vec2 padding = vec2(10.0);
     vec2 bMin = iResolution.xy - vec2(size) - padding;
     vec2 bMax = iResolution.xy - padding;
@@ -168,11 +168,11 @@ void main()
             vec3 ambient  = vec3(0.2, 0.3, 0.4);
             vec3 sun      = vec3(0.8, 0.7, 0.5);
 
-            //col = material * (ambient + diffuse * sun);
             col = ambient + diffuse * sun * normal;
+            //col = material * (ambient + diffuse * sun);
             //col = ambient + diffuse * sun;
 
-             /* 
+            /* 
             ivec3 voxelCoord = ivec3(floor((pos - uGridStart) * uInvCellSize));
             vec3 brick_color = debugColor(brickCoord);
             vec3 voxel_color = debugColor(voxelCoord);
@@ -181,7 +181,9 @@ void main()
         }
     }
 
-    /*drawAtlasDebug(col, gl_FragCoord.xy);*/
+    /*
+    drawAtlasDebug(col, gl_FragCoord.xy);
+    */
 
     FragColor = vec4(pow(col, vec3(0.4545)), 1.0);
 }
