@@ -27,8 +27,10 @@
 #define GL_STATIC_DRAW 0x88E4
 #define GL_DYNAMIC_DRAW 0x88E8
 #define GL_ARRAY_BUFFER 0x8892
+#define GL_ELEMENT_ARRAY_BUFFER 0x8893
 #define GL_BYTE 0x1400
 #define GL_UNSIGNED_BYTE 0x1401
+#define GL_UNSIGNED_INT 0x1405
 #define GL_TEXTURE_1D 0x0DE0
 #define GL_TEXTURE_2D 0x0DE1
 #define GL_TEXTURE_3D 0x806F
@@ -148,6 +150,9 @@ static PFNGLDELETESHADERPROC glDeleteShader;
 typedef void (*PFNGLDRAWARRAYSPROC)(u32 mode, i32 first, i32 count);
 static PFNGLDRAWARRAYSPROC glDrawArrays;
 
+typedef void (*PFNGLDRAWELEMENTSINSTANCEDPROC)(u32 mode, i32 count, u32 type, void *indices, i32 primcount);
+static PFNGLDRAWELEMENTSINSTANCEDPROC glDrawElementsInstanced;
+
 typedef void (*PFNGLUSEPROGRAMPROC)(u32 program);
 static PFNGLUSEPROGRAMPROC glUseProgram;
 
@@ -265,6 +270,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)load("glGetProgramInfoLog");
     glDeleteShader = (PFNGLDELETESHADERPROC)load("glDeleteShader");
     glDrawArrays = (PFNGLDRAWARRAYSPROC)load("glDrawArrays");
+    glDrawElementsInstanced = (PFNGLDRAWELEMENTSINSTANCEDPROC)load("glDrawElementsInstanced");
     glUseProgram = (PFNGLUSEPROGRAMPROC)load("glUseProgram");
     glGenVertexArrays = (PFNGLGENVERTEXARRAYSPROC)load("glGenVertexArrays");
     glBindVertexArray = (PFNGLBINDVERTEXARRAYPROC)load("glBindVertexArray");
