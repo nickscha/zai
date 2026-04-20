@@ -113,4 +113,9 @@ ZAI_API ZAI_INLINE f32 zai_cosf_snorm(f32 a)
     return a0 + a * (a1 + a * (a2 + a * (a3 + a * (a4 + a * (a5 + a * (a6 + a * a7))))));
 }
 
+ZAI_API ZAI_INLINE f32 zai_tanf(f32 x)
+{
+    return (zai_sinf(x) / zai_cosf(x));
+}
+
 #endif /* ZAI_MATH_BASIC_H */
