@@ -880,9 +880,13 @@ typedef struct shader_terrain
 {
   shader_header header;
 
+  i32 loc_iResolution;
   i32 loc_camera;
   i32 loc_base_scale;
   i32 loc_mvp;
+  i32 loc_texture_diffuse;
+  i32 loc_texture_normal;
+  i32 loc_texture_displacement;
 
 } shader_terrain;
 
@@ -1718,6 +1722,10 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   static u32 terrain_vbo;
   static u32 terrain_ibo;
 
+  static u32 tex_diffuse;
+  static u32 tex_normal;
+  static u32 tex_displacement;
+
   static zai_camera camera = {0};
   static u8 mouse_attached = 0;
 
@@ -1741,11 +1749,21 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
 
     if (opengl_shader_load(&terrain_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
     {
+      terrain_shader.loc_iResolution = glGetUniformLocation(terrain_shader.header.program, "iResolution");
       terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "iCamera");
       terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "iBaseScale");
       terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "MVP");
+      terrain_shader.loc_texture_diffuse = glGetUniformLocation(terrain_shader.header.program, "tex_diffuse");
+      terrain_shader.loc_texture_normal = glGetUniformLocation(terrain_shader.header.program, "tex_normal");
+      terrain_shader.loc_texture_displacement = glGetUniformLocation(terrain_shader.header.program, "tex_displacement");
 
-      if (terrain_shader.loc_camera < 0 || terrain_shader.loc_base_scale < 0 || terrain_shader.loc_mvp < 0)
+      if (
+          terrain_shader.loc_camera < 0 ||
+          terrain_shader.loc_base_scale < 0 ||
+          terrain_shader.loc_mvp < 0 ||
+          terrain_shader.loc_texture_diffuse < 0 ||
+          terrain_shader.loc_texture_normal < 0 ||
+          terrain_shader.loc_texture_displacement < 0)
       {
         win32_print("Cannot find uniforms!\n");
       }
@@ -1813,6 +1831,78 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     glGenBuffers(1, &terrain_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
+
+    /* Texture loading */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_diff_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read diffuse texture!\n");
+      }
+
+      glGenTextures(1, &tex_diffuse);
+      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE0);
+    }
+
+    /* Normal */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_nor_dx_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read normal texture!\n");
+      }
+
+      glGenTextures(1, &tex_normal);
+      glBindTexture(GL_TEXTURE_2D, tex_normal);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE1);
+    }
+
+    /* Displacement */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_disp_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read displacement texture!\n");
+      }
+
+      glGenTextures(1, &tex_displacement);
+      glBindTexture(GL_TEXTURE_2D, tex_displacement);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE2);
+    }
 
     terrain_initialized = 1;
 
@@ -1892,12 +1982,26 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glUseProgram(terrain_shader.header.program);
+      glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
       glUniform1f(terrain_shader.loc_base_scale, base_scale);
       glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
       glBindVertexArray(terrain_vao);
       glEnable(GL_DEPTH_TEST);
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
+
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
+      glUniform1i(terrain_shader.loc_texture_diffuse, 0);
+
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, tex_normal);
+      glUniform1i(terrain_shader.loc_texture_normal, 1);
+
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, tex_displacement);
+      glUniform1i(terrain_shader.loc_texture_displacement, 2);
+
       glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, lod_count);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
@@ -1923,6 +2027,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
   u32 main_vao;
   u32 font_vao;
   u32 glyph_vbo;
+
+  u32 tex;
 
   state.running = 1;
   state.window_title = "zai v0.1 (F1=Debug UI, F2=Screen Recording, R=Reset, P=Pause, F9=Borderless, F11=Fullscreen)";
@@ -2013,7 +2119,6 @@ ZAI_API i32 start(i32 argc, u8 **argv)
   {
     /* Generate font texture */
     u8 zai_font_pixels[ZAI_FONT_WIDTH * ZAI_FONT_HEIGHT];
-    u32 tex;
 
     /* OpenGL does not allow 1bit packed texture data so we convert each bit to 1 byte */
     unpack_1bit_to_8bit(zai_font_pixels, zai_font, ZAI_FONT_WIDTH, ZAI_FONT_HEIGHT);
@@ -2657,6 +2762,10 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         glBindVertexArray(font_vao);
         glBindBuffer(GL_ARRAY_BUFFER, glyph_vbo);
         glBufferData(GL_ARRAY_BUFFER, (i32)(glyph_buffer_count * sizeof(glyph)), glyph_buffer, GL_STREAM_DRAW);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
+
         glDrawArraysInstanced(GL_TRIANGLE_FAN, 0, 4, glyph_buffer_count);
         glBindVertexArray(0);
 

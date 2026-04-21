@@ -7,9 +7,9 @@ uniform mat4  MVP;
 
 out float vLod;
 out float vHeight;
-out vec3  vNormal;
 out vec3  vTangent;
 out vec3  vBitangent;
+out vec3  vNormal;
 out vec3  vWorldPos;
 
 /* configuration */
@@ -133,9 +133,10 @@ void main() {
 
     vLod = float(lod);
     vHeight = mix(h_fine, h_coarse, morph);
-    vNormal = normalize(vec3(-grad.x, 1.0, -grad.y));
     vTangent = normalize(vec3(1.0, grad.x, 0.0));
-    vBitangent = normalize(cross(normal, vTangent));
+    vBitangent = normalize(vec3(0.0, grad.y, 1.0));
+    /* vBitangent = normalize(cross(normal, vTangent)); */
+    vNormal = normalize(vec3(-grad.x, 1.0, -grad.y));
     vWorldPos = vec4(finalXZ.x, vHeight, finalXZ.y, 1.0).xyz;
     gl_Position = MVP * vec4(vWorldPos, 1.0);
 }

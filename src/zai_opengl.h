@@ -38,6 +38,8 @@
 #define GL_MAX_3D_TEXTURE_SIZE 0x8073
 #define GL_NEAREST 0x2600
 #define GL_LINEAR 0x2601
+#define GL_LINEAR_MIPMAP_LINEAR 0x2703
+#define GL_REPEAT 0x2901
 #define GL_TEXTURE_MIN_FILTER 0x2801
 #define GL_TEXTURE_MAG_FILTER 0x2800
 #define GL_TEXTURE_WRAP_S 0x2802
@@ -199,6 +201,9 @@ static PFNGLACTIVETEXTUREPROC glActiveTexture;
 typedef void (*PFNGLTEXIMAGE3DPROC)(u32 target, i32 level, i32 internalFormat, i32 width, i32 height, i32 depth, i32 border, u32 format, u32 type, void *data);
 static PFNGLTEXIMAGE3DPROC glTexImage3D;
 
+typedef void (*PFNGLGENERATEMIPMAPPROC)(u32 target);
+static PFNGLGENERATEMIPMAPPROC glGenerateMipmap;
+
 typedef void (*PFNGLGENBUFFERSPROC)(i32 n, u32 *buffers);
 static PFNGLGENBUFFERSPROC glGenBuffers;
 
@@ -258,6 +263,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glBindTexture = (PFNGLBINDTEXTUREPROC)load("glBindTexture");
     glTexImage1D = (PFNGLTEXIMAGE1DPROC)load("glTexImage1D");
     glTexImage2D = (PFNGLTEXIMAGE2DPROC)load("glTexImage2D");
+
     glTexParameteri = (PFNGLTEXPARAMETERIPROC)load("glTexParameteri");
     glPixelStorei = (PFNGLPIXELSTOREIPROC)load("glPixelStorei");
     glReadPixels = (PFNGLREADPIXELSPROC)load("glReadPixels");
@@ -291,6 +297,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glUniform4fv = (PFNGLUNIFORM4FVPROC)load("glUniform4fv");
     glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)load("glUniformMatrix4fv");
     glActiveTexture = (PFNGLACTIVETEXTUREPROC)load("glActiveTexture");
+    glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC)load("glGenerateMipmap");
     glTexImage3D = (PFNGLTEXIMAGE3DPROC)load("glTexImage3D");
     glGenBuffers = (PFNGLGENBUFFERSPROC)load("glGenBuffers");
     glBindBuffer = (PFNGLBINDBUFFERPROC)load("glBindBuffer");
