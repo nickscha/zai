@@ -1823,38 +1823,70 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   ZAI_PROFILER_BEGIN(render_terrain);
   {
     static i32 lod_count = 10;
+    static f32 base_scale = 128.0f;
     static f32 cam_x = 0.0f;
     static f32 cam_y = 500.0f;
     static f32 cam_z = 0.0f;
+    static f32 cam_speed = 50.0f;
     static f32 forward_x = 0.0f;
     static f32 forward_y = 0.0f;
     static f32 forward_z = 1.0f;
-    static f32 base_scale = 128.0f;
     static u8 wireframe_enabled = 0;
-
-    zai_vec3 camera = zai_vec3_init(cam_x, cam_y, cam_z);
-    zai_vec3 forward = zai_vec3_init(forward_x, forward_y, forward_z);
-    zai_vec3 up = zai_vec3_init(0.0f, 1.0f, 0.0f);
-
-    zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-    zai_mat4x4 view = zai_mat4x4_look_at(camera, zai_vec3_add(camera, forward), up);
-    zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
     if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
     {
       wireframe_enabled = !wireframe_enabled;
     }
 
-    glUseProgram(terrain_shader.header.program);
-    glUniform3f(terrain_shader.loc_camera, cam_x, cam_y, cam_z);
-    glUniform1f(terrain_shader.loc_base_scale, base_scale);
-    glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
-    glBindVertexArray(terrain_vao);
-    glEnable(GL_DEPTH_TEST);
-    glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
-    glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, lod_count);
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glDisable(GL_DEPTH_TEST);
+    if (state->keys_is_down[0x57]) /* W */
+    {
+      cam_z += cam_speed;
+    }
+
+    if (state->keys_is_down[0x53]) /* S */
+    {
+      cam_z -= cam_speed;
+    }
+
+    if (state->keys_is_down[0x41]) /* A */
+    {
+      cam_x += cam_speed;
+    }
+
+    if (state->keys_is_down[0x44]) /* D */
+    {
+      cam_x -= cam_speed;
+    }
+
+    if (state->keys_is_down[0x20]) /* space */
+    {
+      cam_y += cam_speed;
+    }
+    if (state->keys_is_down[0x11]) /* control */
+    {
+      cam_y -= cam_speed;
+    }
+
+    {
+      zai_vec3 camera = zai_vec3_init(cam_x, cam_y, cam_z);
+      zai_vec3 forward = zai_vec3_init(forward_x, forward_y, forward_z);
+      zai_vec3 up = zai_vec3_init(0.0f, 1.0f, 0.0f);
+
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera, zai_vec3_add(camera, forward), up);
+      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+      glUseProgram(terrain_shader.header.program);
+      glUniform3f(terrain_shader.loc_camera, cam_x, cam_y, cam_z);
+      glUniform1f(terrain_shader.loc_base_scale, base_scale);
+      glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+      glBindVertexArray(terrain_vao);
+      glEnable(GL_DEPTH_TEST);
+      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
+      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, lod_count);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glDisable(GL_DEPTH_TEST);
+    }
   }
   ZAI_PROFILER_END(render_terrain);
 
