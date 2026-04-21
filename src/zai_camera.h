@@ -22,7 +22,7 @@ typedef struct zai_camera
 
 } zai_camera;
 
-ZAI_API ZAI_INLINE void zai_camera_update(zai_camera *cam)
+ZAI_API void zai_camera_update(zai_camera *cam)
 {
   f32 yawRadians = ZAI_DEG_TO_RAD(cam->yaw);
   f32 pitchRadians = ZAI_DEG_TO_RAD(cam->pitch);
@@ -36,7 +36,7 @@ ZAI_API ZAI_INLINE void zai_camera_update(zai_camera *cam)
   cam->up = zai_vec3_normalize(zai_vec3_cross(cam->right, cam->front));
 }
 
-ZAI_API zai_camera camera_init(void)
+ZAI_API zai_camera zai_camera_init(void)
 {
   zai_camera cam = {0};
 
@@ -49,7 +49,7 @@ ZAI_API zai_camera camera_init(void)
 
   zai_camera_update(&cam);
 
-  return (cam);
+  return cam;
 }
 
 #endif /* ZAI_CAMERA_H */

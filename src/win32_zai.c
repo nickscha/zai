@@ -9,6 +9,7 @@ LICENSE
 #include "zai_types.h"
 #include "zai_font.h"
 #include "zai_string_builder.h"
+#include "zai_camera.h"
 #include "zai_ui.h"
 #include "zai_color.h"
 #include "zai_profiler.h"
@@ -1717,6 +1718,9 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   static u32 terrain_vbo;
   static u32 terrain_ibo;
 
+  static zai_camera camera = {0};
+  static u8 mouse_attached = 0;
+
   if (!terrain_initialized)
   {
     u32 size_code_vertex = 0;
@@ -1725,6 +1729,9 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     u8 *shader_code_fragment = win32_file_read("zai_terrain.fs", &size_code_fragment);
 
     ZAI_PROFILER_BEGIN(setup_terrain);
+
+    camera = zai_camera_init();
+    camera.position.y = 50.0f;
 
     if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
     {
@@ -1817,13 +1824,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   {
     static i32 lod_count = 10;
     static f32 base_scale = 128.0f;
-    static f32 cam_x = 0.0f;
-    static f32 cam_y = 10.0f;
-    static f32 cam_z = 0.0f;
-    static f32 cam_speed = 10.0f;
-    static f32 forward_x = 0.0f;
-    static f32 forward_y = 0.0f;
-    static f32 forward_z = 1.0f;
     static u8 wireframe_enabled = 0;
 
     if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
@@ -1831,46 +1831,68 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    if (state->keys_is_down[0x57]) /* W */
+    /* Camera movement */
     {
-      cam_z += cam_speed;
+      f32 cam_speed = 4000.0f * (f32)state->iTimeDelta;
+
+      if (state->keys_is_down[0x57]) /* W */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.front, cam_speed));
+      }
+
+      if (state->keys_is_down[0x53]) /* S */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.front, cam_speed));
+      }
+
+      if (state->keys_is_down[0x41]) /* A */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.right, cam_speed));
+      }
+
+      if (state->keys_is_down[0x44]) /* D */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.right, cam_speed));
+      }
+
+      if (state->keys_is_down[0x20]) /* space */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
+      }
+
+      if (state->keys_is_down[0x11]) /* control */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
+      }
+
+      if (state->mouse_left_is_down && !state->mouse_left_was_down)
+      {
+        mouse_attached = !mouse_attached;
+      }
+
+      if (mouse_attached)
+      {
+        f32 mouseSensitivity = 0.1f;
+        camera.yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
+        camera.pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
+        camera.pitch = zai_clampf(camera.pitch, -89.0f, 89.0f);
+
+        if (state->mouse_scroll != 0.0f)
+        {
+          camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
+        }
+      }
+
+      zai_camera_update(&camera);
     }
 
-    if (state->keys_is_down[0x53]) /* S */
     {
-      cam_z -= cam_speed;
-    }
-
-    if (state->keys_is_down[0x41]) /* A */
-    {
-      cam_x += cam_speed;
-    }
-
-    if (state->keys_is_down[0x44]) /* D */
-    {
-      cam_x -= cam_speed;
-    }
-
-    if (state->keys_is_down[0x20]) /* space */
-    {
-      cam_y += cam_speed;
-    }
-    if (state->keys_is_down[0x11]) /* control */
-    {
-      cam_y -= cam_speed;
-    }
-
-    {
-      zai_vec3 camera = zai_vec3_init(cam_x, cam_y, cam_z);
-      zai_vec3 forward = zai_vec3_init(forward_x, forward_y, forward_z);
-      zai_vec3 up = zai_vec3_init(0.0f, 1.0f, 0.0f);
-
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera, zai_vec3_add(camera, forward), up);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glUseProgram(terrain_shader.header.program);
-      glUniform3f(terrain_shader.loc_camera, cam_x, cam_y, cam_z);
+      glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
       glUniform1f(terrain_shader.loc_base_scale, base_scale);
       glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
       glBindVertexArray(terrain_vao);
