@@ -1704,7 +1704,6 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
 #define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
-
 ZAI_API void zai_render_terrain(win32_zai_state *state)
 {
   static u8 terrain_initialized = 0;
@@ -1819,9 +1818,9 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     static i32 lod_count = 10;
     static f32 base_scale = 128.0f;
     static f32 cam_x = 0.0f;
-    static f32 cam_y = 500.0f;
+    static f32 cam_y = 10.0f;
     static f32 cam_z = 0.0f;
-    static f32 cam_speed = 50.0f;
+    static f32 cam_speed = 10.0f;
     static f32 forward_x = 0.0f;
     static f32 forward_y = 0.0f;
     static f32 forward_z = 1.0f;
