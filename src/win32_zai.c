@@ -1845,10 +1845,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-#define GL_LINE 0x1B01
-#define GL_FILL 0x1B02
-#define GL_FRONT_AND_BACK 0x0408
-
     glUseProgram(terrain_shader.header.program);
     glUniform3f(terrain_shader.loc_camera, cam_x, cam_y, cam_z);
     glUniform1f(terrain_shader.loc_base_scale, base_scale);

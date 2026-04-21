@@ -64,6 +64,9 @@
 #define GL_SRC_ALPHA 0x0302
 #define GL_ONE_MINUS_SRC_ALPHA 0x0303
 #define GL_DEPTH_TEST 0x0B71
+#define GL_LINE 0x1B01
+#define GL_FILL 0x1B02
+#define GL_FRONT_AND_BACK 0x0408
 
 /* OpenGL 1.1 functions */
 typedef void (*PFNGLCLEARCOLORPROC)(f32 red, f32 green, f32 blue, f32 alpha);
