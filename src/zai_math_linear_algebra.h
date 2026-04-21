@@ -13,6 +13,13 @@
 #include "zai_math_linear_algebra_sse2.h"
 #endif
 
+typedef struct zai_vec2
+{
+    f32 x;
+    f32 y;
+
+} zai_vec2;
+
 ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_perspective(f32 fov, f32 aspectRatio, f32 zNear, f32 zFar)
 {
     f32 f = 1.0f / zai_tanf(fov * 0.5f);

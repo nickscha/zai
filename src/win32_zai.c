@@ -1704,19 +1704,13 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
 #define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
-typedef struct GridVert
-{
-  f32 u;
-  f32 v;
-
-} GridVert;
 
 ZAI_API void zai_render_terrain(win32_zai_state *state)
 {
   static u8 terrain_initialized = 0;
   static shader_terrain terrain_shader = {0};
 
-  static GridVert gridVerts[MAX_VERTS];
+  static zai_vec2 gridVerts[MAX_VERTS];
   static u32 gridIndices[MAX_INDICES];
   static i32 gridIndexCount = 0;
 
@@ -1770,8 +1764,8 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
         for (x = 0; x < GRID_RES; ++x)
         {
           i = z * GRID_RES + x;
-          gridVerts[i].u = (f32)x / (f32)(GRID_RES - 1);
-          gridVerts[i].v = (f32)z / (f32)(GRID_RES - 1);
+          gridVerts[i].x = (f32)x / (f32)(GRID_RES - 1);
+          gridVerts[i].y = (f32)z / (f32)(GRID_RES - 1);
         }
       }
 
@@ -1807,7 +1801,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     glBindBuffer(GL_ARRAY_BUFFER, terrain_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(gridVerts), gridVerts, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(GridVert), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(zai_vec2), (void *)0);
     glEnableVertexAttribArray(0);
 
     glGenBuffers(1, &terrain_ibo);
@@ -1889,9 +1883,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     }
   }
   ZAI_PROFILER_END(render_terrain);
-
-  (void)state;
-  (void)gridIndexCount;
 }
 
 /* #############################################################################
