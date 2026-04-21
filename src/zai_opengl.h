@@ -14,6 +14,7 @@
 #define GL_TRIANGLES 0x0004
 #define GL_TRIANGLE_FAN 0x0006
 #define GL_COLOR_BUFFER_BIT 0x00004000
+#define GL_DEPTH_BUFFER_BIT 0x00000100
 #define GL_FRAMEBUFFER_SRGB 0x8DB9
 #define GL_MULTISAMPLE 0x809D
 #define GL_COMPILE_STATUS 0x8B81
@@ -70,6 +71,9 @@ static PFNGLCLEARCOLORPROC glClearColor;
 
 typedef void (*PFNGLCLEARPROC)(u32 mask);
 static PFNGLCLEARPROC glClear;
+
+typedef void (*PFNGLPOLYGONMODEPROC)(u32 face, u32 mode);
+static PFNGLPOLYGONMODEPROC glPolygonMode;
 
 typedef void (*PFNGLVIEWPORTPROC)(i32 x, i32 y, i32 width, i32 height);
 static PFNGLVIEWPORTPROC glViewport;
@@ -242,6 +246,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     /* OpenGL 1.1 functions */
     glClearColor = (PFNGLCLEARCOLORPROC)load("glClearColor");
     glClear = (PFNGLCLEARPROC)load("glClear");
+    glPolygonMode = (PFNGLPOLYGONMODEPROC)load("glPolygonMode");
     glViewport = (PFNGLVIEWPORTPROC)load("glViewport");
     glEnable = (PFNGLENABLEPROC)load("glEnable");
     glDisable = (PFNGLDISABLEPROC)load("glDisable");

@@ -371,11 +371,13 @@ static zai_mat4x4 zai_mat4x4_zero =
       0.0f, 0.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 0.0f}};
 
+/*
 static zai_mat4x4 zai_mat4x4_identity =
     {{1.0f, 0.0f, 0.0f, 0.0f,
       0.0f, 1.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 1.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 1.0f}};
+*/
 
 ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_mul(zai_mat4x4 a, zai_mat4x4 b)
 {

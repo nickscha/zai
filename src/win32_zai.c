@@ -1706,7 +1706,9 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
 
 typedef struct GridVert
 {
-  f32 u, v;
+  f32 u;
+  f32 v;
+
 } GridVert;
 
 ZAI_API void zai_render_terrain(win32_zai_state *state)
@@ -1726,10 +1728,10 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   {
     u32 size_code_vertex = 0;
     u32 size_code_fragment = 0;
-    u8 *shader_code_vertex = win32_file_read("zai_terrain.fs", &size_code_vertex);
+    u8 *shader_code_vertex = win32_file_read("zai_terrain.vs", &size_code_vertex);
     u8 *shader_code_fragment = win32_file_read("zai_terrain.fs", &size_code_fragment);
 
-    terrain_initialized = 1;
+    ZAI_PROFILER_BEGIN(setup_terrain);
 
     if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
     {
@@ -1739,9 +1741,18 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
 
     if (opengl_shader_load(&terrain_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
     {
-      terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "camera");
-      terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "base_scale");
-      terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "mvp");
+      terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "iCamera");
+      terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "iBaseScale");
+      terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "MVP");
+
+      if (terrain_shader.loc_camera < 0 || terrain_shader.loc_base_scale < 0 || terrain_shader.loc_mvp < 0)
+      {
+        win32_print("Cannot find uniforms!\n");
+      }
+    }
+    else
+    {
+      win32_print("Cannot compile shaders!\n");
     }
 
     VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
@@ -1802,27 +1813,54 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     glGenBuffers(1, &terrain_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
+
+    terrain_initialized = 1;
+
+    ZAI_PROFILER_END(setup_terrain);
   }
 
-  /* Render
+  /* Render */
+  ZAI_PROFILER_BEGIN(render_terrain);
   {
-    i32 lod_count = 10;
-    f32 base_scale = 128.0f;
-    f32 cam_x = 0.0f;
-    f32 cam_y = 500.0f;
-    f32 cam_z = 0.0f;
-    f32 mvp[16];
+    static i32 lod_count = 10;
+    static f32 cam_x = 0.0f;
+    static f32 cam_y = 500.0f;
+    static f32 cam_z = 0.0f;
+    static f32 forward_x = 0.0f;
+    static f32 forward_y = 0.0f;
+    static f32 forward_z = 1.0f;
+    static f32 base_scale = 128.0f;
+    static u8 wireframe_enabled = 0;
+
+    zai_vec3 camera = zai_vec3_init(cam_x, cam_y, cam_z);
+    zai_vec3 forward = zai_vec3_init(forward_x, forward_y, forward_z);
+    zai_vec3 up = zai_vec3_init(0.0f, 1.0f, 0.0f);
+
+    zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
+    zai_mat4x4 view = zai_mat4x4_look_at(camera, zai_vec3_add(camera, forward), up);
+    zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+    if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
+    {
+      wireframe_enabled = !wireframe_enabled;
+    }
+
+#define GL_LINE 0x1B01
+#define GL_FILL 0x1B02
+#define GL_FRONT_AND_BACK 0x0408
 
     glUseProgram(terrain_shader.header.program);
     glUniform3f(terrain_shader.loc_camera, cam_x, cam_y, cam_z);
     glUniform1f(terrain_shader.loc_base_scale, base_scale);
-    glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp);
+    glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
     glBindVertexArray(terrain_vao);
     glEnable(GL_DEPTH_TEST);
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
     glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, lod_count);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDisable(GL_DEPTH_TEST);
   }
-  */
+  ZAI_PROFILER_END(render_terrain);
 
   (void)state;
   (void)gridIndexCount;
@@ -1850,9 +1888,9 @@ ZAI_API i32 start(i32 argc, u8 **argv)
   state.window_title = "zai v0.1 (F1=Debug UI, F2=Screen Recording, R=Reset, P=Pause, F9=Borderless, F11=Fullscreen)";
   state.window_width = 800;
   state.window_height = 600;
-  state.window_clear_color_r = 0.2f;
-  state.window_clear_color_g = 0.2f;
-  state.window_clear_color_b = 0.2f;
+  state.window_clear_color_r = 0.1f;
+  state.window_clear_color_g = 0.1f;
+  state.window_clear_color_b = 0.1f;
   state.target_frames_per_second = 30; /* 60 FPS, 0 = unlimited */
   state.controller.check_needed = 1;   /* By default we have to query first XInput state */
 
@@ -2210,8 +2248,6 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         state.window_size_changed = 0;
       }
 
-      glClear(GL_COLOR_BUFFER_BIT);
-
       /******************************/
       /* Pause Shader (P)           */
       /******************************/
@@ -2233,9 +2269,15 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       /* Main Application Logic     */
       /******************************/
-      zai_render_grid(&state, &main_shader, main_vao);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      /*zai_render_grid(&state, &main_shader, main_vao);*/
       zai_render_ui(&state);
       zai_render_terrain(&state);
+
+      (void)zai_render_grid;
+      (void)zai_render_ui;
+      (void)zai_render_terrain;
 
       /******************************/
       /* UI Rendering (F1 pressed)  */
