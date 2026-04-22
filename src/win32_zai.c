@@ -466,6 +466,9 @@ typedef struct win32_zai_state
   u32 grid_active_brick_count;
   zai_vec3 grid_atlas_dimensions;
 
+  i32 terrain_lod_count;
+  i32 terrain_base_scale;
+
 } win32_zai_state;
 
 ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wParam, i64 lParam)
@@ -1568,7 +1571,6 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
     static u32 wy = 10;
     static u32 dhw = 200;
     static u32 dhh = 20;
-    static f32 slider_val = 0.5f;
     static f32 ui_scale = 0.8f;
     static u8 collapsed = 1;
 
@@ -1641,9 +1643,9 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
         }
       }
 
-      /* Slider */
+      /* Slider LOD count */
       {
-        zai_ui_result slider = zai_ui_slider(&ui_context, 3, 0, 0, 0, 20, &slider_val);
+        zai_ui_result slider = zai_ui_slider_int(&ui_context, 3, 0, 0, 0, 20, &state->terrain_lod_count, 1, 15, 1);
         zai_ui_result knob_rect;
         u32 knob_width;
         u32 knob_x;
@@ -1652,7 +1654,26 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
         zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
 
         knob_width = 10;
-        knob_x = slider.x + (u32)(slider_val * (f32)(slider.w - knob_width));
+        knob_x = slider.x + (u32)(((f32)state->terrain_lod_count / 15.0f) * (f32)(slider.w - knob_width));
+
+        knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
+
+        knob_color = (slider.state & ZAI_UI_STATE_HELD) ? 0.8f : 0.6f;
+        zai_ui_render_instance_push(knob_rect, knob_color, knob_color, knob_color, 1.0f);
+      }
+
+      /* Slider Base Scale count */
+      {
+        zai_ui_result slider = zai_ui_slider_int(&ui_context, 6, 0, 0, 0, 20, &state->terrain_base_scale, 64, 1024, 16);
+        zai_ui_result knob_rect;
+        u32 knob_width;
+        u32 knob_x;
+        f32 knob_color;
+
+        zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
+
+        knob_width = 10;
+        knob_x = slider.x + (u32)(((f32)state->terrain_base_scale / 1024.0f) * (f32)(slider.w - knob_width));
 
         knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
 
@@ -1740,6 +1761,9 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
 
     camera = zai_camera_init();
     camera.position.y = 50.0f;
+
+    state->terrain_lod_count = 10;
+    state->terrain_base_scale = 128;
 
     if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
     {
@@ -1912,8 +1936,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   /* Render */
   ZAI_PROFILER_BEGIN(render_terrain);
   {
-    static i32 lod_count = 10;
-    static f32 base_scale = 128.0f;
     static u8 wireframe_enabled = 0;
 
     if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
@@ -1960,6 +1982,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
         mouse_attached = !mouse_attached;
       }
 
+      /*
       if (mouse_attached)
       {
         f32 mouseSensitivity = 0.1f;
@@ -1972,6 +1995,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
           camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
         }
       }
+      */
 
       zai_camera_update(&camera);
     }
@@ -1984,7 +2008,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glUseProgram(terrain_shader.header.program);
       glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
-      glUniform1f(terrain_shader.loc_base_scale, base_scale);
+      glUniform1f(terrain_shader.loc_base_scale, (f32)state->terrain_base_scale);
       glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
       glBindVertexArray(terrain_vao);
       glEnable(GL_DEPTH_TEST);
@@ -2002,7 +2026,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glBindTexture(GL_TEXTURE_2D, tex_displacement);
       glUniform1i(terrain_shader.loc_texture_displacement, 2);
 
-      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, lod_count);
+      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, state->terrain_lod_count);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
     }
