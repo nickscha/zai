@@ -1856,7 +1856,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
 
-    /* Texture loading */
+    /* Diffuse */
     {
       u32 w = 1024;
       u32 h = 1024;
@@ -1875,6 +1875,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
       glGenerateMipmap(GL_TEXTURE_2D);
       glActiveTexture(GL_TEXTURE0);
@@ -1899,6 +1900,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
       glGenerateMipmap(GL_TEXTURE_2D);
       glActiveTexture(GL_TEXTURE1);
@@ -1923,6 +1925,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
       glGenerateMipmap(GL_TEXTURE_2D);
       glActiveTexture(GL_TEXTURE2);
