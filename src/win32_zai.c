@@ -1664,7 +1664,7 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
 
       /* Slider Base Scale count */
       {
-        zai_ui_result slider = zai_ui_slider_int(&ui_context, 6, 0, 0, 0, 20, &state->terrain_base_scale, 64, 1024, 16);
+        zai_ui_result slider = zai_ui_slider_int(&ui_context, 6, 0, 0, 0, 20, &state->terrain_base_scale, 64, 1024, 64);
         zai_ui_result knob_rect;
         u32 knob_width;
         u32 knob_x;
