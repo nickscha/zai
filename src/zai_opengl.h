@@ -68,7 +68,9 @@
 #define GL_DEPTH_TEST 0x0B71
 #define GL_LINE 0x1B01
 #define GL_FILL 0x1B02
+#define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
+#define GL_CULL_FACE 0x0B44
 
 /* OpenGL 1.1 functions */
 typedef void (*PFNGLCLEARCOLORPROC)(f32 red, f32 green, f32 blue, f32 alpha);
@@ -118,6 +120,9 @@ static PFNGLBLENDFUNCPROC glBlendFunc;
 
 typedef void (*PFNGLGETINTEGERVPROC)(u32 pname, i32 *params);
 static PFNGLGETINTEGERVPROC glGetIntegerv;
+
+typedef void (*PFNGLCULLFACEPROC)(u32 mode);
+static PFNGLCULLFACEPROC glCullFace;
 
 /* Opengl 1.1+ until current */
 typedef u32 (*PFNGLCREATESHADERPROC)(u32 shaderType);
@@ -269,6 +274,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glReadPixels = (PFNGLREADPIXELSPROC)load("glReadPixels");
     glBlendFunc = (PFNGLBLENDFUNCPROC)load("glBlendFunc");
     glGetIntegerv = (PFNGLGETINTEGERVPROC)load("glGetIntegerv");
+    glCullFace = (PFNGLCULLFACEPROC)load("glCullFace");
 
     /* Opengl 1.1+ until current */
     glCreateShader = (PFNGLCREATESHADERPROC)load("glCreateShader");

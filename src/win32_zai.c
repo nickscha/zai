@@ -2008,6 +2008,9 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
+      glEnable(GL_CULL_FACE);
+      glCullFace(GL_BACK);
+
       glUseProgram(terrain_shader.header.program);
       glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
@@ -2032,6 +2035,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, state->terrain_lod_count);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
+      glDisable(GL_CULL_FACE);
     }
   }
   ZAI_PROFILER_END(render_terrain);
