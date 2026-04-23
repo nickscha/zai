@@ -894,6 +894,14 @@ typedef struct shader_terrain
 
 } shader_terrain;
 
+typedef struct shader_marching_cubes
+{
+  shader_header header;
+
+  i32 loc_mvp;
+
+} shader_marching_cubes;
+
 typedef struct shader_font
 {
   shader_header header;
@@ -2048,8 +2056,198 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
  * # [SECTION] Marching Cubes
  * #############################################################################
  */
+void initialize_density_grid(f32 *grid, i32 dim, f32 world_size)
+{
+  i32 x, y, z;
+  f32 scale = 0.05f;
+
+  for (z = 0; z < dim; ++z)
+  {
+    /* Calculate world Z relative to the center, matching zai_create_vertex logic */
+    f32 world_z = ((f32)z / ((f32)dim - 1.0f) - 0.5f) * world_size;
+
+    for (x = 0; x < dim; ++x)
+    {
+      f32 world_x = ((f32)x / ((f32)dim - 1.0f) - 0.5f) * world_size;
+      f32 height = zai_sinf(world_x * scale) * 10.0f +
+                   zai_cosf(world_z * scale) * 10.0f;
+
+      for (y = 0; y < dim; ++y)
+      {
+        f32 world_y = ((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size;
+
+        /* Density: Positive = Inside, Negative = Outside */
+        grid[z * dim * dim + y * dim + x] = height - world_y;
+      }
+    }
+  }
+}
+
+#define DIM 32
+#define MAX_TRIANGLES (DIM * DIM * DIM * 5)
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 {
+  static u8 marching_cubes_initialized = 0;
+  static f32 density_grid[DIM * DIM * DIM];
+  static zai_marching_cubes_triangle triangle_buffer[MAX_TRIANGLES];
+  static zai_marching_cubes_context ctx = {0};
+  static i32 triangle_count = 0;
+  static u32 vao;
+  static u32 vbo;
+  static shader_marching_cubes marching_cubes_shader;
+
+  static zai_camera camera = {0};
+  static u8 mouse_attached = 0;
+
+  if (!marching_cubes_initialized)
+  {
+    ZAI_PROFILER_BEGIN(setup_marching_cubes);
+
+    camera = zai_camera_init();
+    camera.position.y = 10.0f;
+    camera.position.z = 85.0f;
+
+    /* Shader Setup */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_marching_cubes.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_marching_cubes.fs", &size_code_fragment);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load marching cubes shader files!\n");
+        return;
+      }
+
+      if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
+
+        if (marching_cubes_shader.loc_mvp < 0)
+        {
+          win32_print("Cannot find uniforms!\n");
+        }
+      }
+      else
+      {
+        win32_print("Cannot compile shaders!\n");
+      }
+    }
+
+    ctx.dim_size = DIM;
+    ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx.chunk_coord.x = 0;
+    ctx.chunk_coord.y = 0;
+    ctx.chunk_coord.z = 0;
+
+    initialize_density_grid(density_grid, DIM, ctx.grid_size);
+
+    ctx.density_grid = density_grid;
+
+    zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
+
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, triangle_count * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
+
+    marching_cubes_initialized = 1;
+
+    ZAI_PROFILER_END(setup_marching_cubes);
+  }
+
+  /* Render */
+  ZAI_PROFILER_BEGIN(render_marching_cubes);
+  {
+    static u8 wireframe_enabled = 0;
+
+    if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
+    {
+      wireframe_enabled = !wireframe_enabled;
+    }
+
+    /* Camera movement */
+    {
+      f32 cam_speed = 200.0f * (f32)state->iTimeDelta;
+
+      if (state->keys_is_down[0x57]) /* W */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.front, cam_speed));
+      }
+
+      if (state->keys_is_down[0x53]) /* S */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.front, cam_speed));
+      }
+
+      if (state->keys_is_down[0x41]) /* A */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.right, cam_speed));
+      }
+
+      if (state->keys_is_down[0x44]) /* D */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.right, cam_speed));
+      }
+
+      if (state->keys_is_down[0x20]) /* space */
+      {
+        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
+      }
+
+      if (state->keys_is_down[0x11]) /* control */
+      {
+        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
+      }
+
+      if (state->mouse_left_is_down && !state->mouse_left_was_down)
+      {
+        mouse_attached = !mouse_attached;
+      }
+
+      if (mouse_attached)
+      {
+        f32 mouseSensitivity = 0.1f;
+        camera.yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
+        camera.pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
+        camera.pitch = zai_clampf(camera.pitch, -89.0f, 89.0f);
+
+        if (state->mouse_scroll != 0.0f)
+        {
+          camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
+        }
+      }
+
+      zai_camera_update(&camera);
+    }
+
+    {
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
+      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+      glEnable(GL_DEPTH_TEST);
+      glEnable(GL_CULL_FACE);
+      glCullFace(GL_BACK);
+      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
+      glUseProgram(marching_cubes_shader.header.program);
+      glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+      glBindVertexArray(vao);
+      glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glDisable(GL_DEPTH_TEST);
+      glDisable(GL_CULL_FACE);
+    }
+  }
+  ZAI_PROFILER_END(render_marching_cubes);
+
   (void)state;
   (void)zai_marching_cubes_corner_index_a_from_edge;
   (void)zai_marching_cubes_corner_index_b_from_edge;
@@ -2463,14 +2661,14 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       /*zai_render_grid(&state, &main_shader, main_vao);*/
-      zai_render_ui(&state);
-      zai_render_terrain(&state);
+      /*zai_render_terrain(&state);*/
       zai_render_marching_cubes(&state);
+      zai_render_ui(&state);
 
       (void)zai_render_grid;
-      (void)zai_render_ui;
       (void)zai_render_terrain;
       (void)zai_render_marching_cubes;
+      (void)zai_render_ui;
 
       /******************************/
       /* UI Rendering (F1 pressed)  */
