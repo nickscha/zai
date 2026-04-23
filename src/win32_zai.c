@@ -2125,7 +2125,7 @@ void initialize_density_grid_3d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chu
   }
 }
 
-#define DIM 32
+#define DIM 128
 #define MAX_TRIANGLES (DIM * DIM * DIM * 5)
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 {
@@ -2144,7 +2144,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
   if (!marching_cubes_initialized)
   {
-
+    ZAI_PROFILER_BEGIN(setup_marching_cubes);
     camera = zai_camera_init();
     camera.position.y = 10.0f;
     camera.position.z = 85.0f;
@@ -2177,8 +2177,6 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       }
     }
 
-    ZAI_PROFILER_BEGIN(setup_marching_cubes);
-
     ctx.dim_size = DIM;
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
@@ -2186,13 +2184,15 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
 
+    ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid);
 
     ctx.density_grid = density_grid;
 
+    ZAI_PROFILER_BEGIN(setup_triangles);
     zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
-
-    ZAI_PROFILER_END(setup_marching_cubes);
+    ZAI_PROFILER_END(setup_triangles);
 
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -2203,6 +2203,8 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
+
+    ZAI_PROFILER_END(setup_marching_cubes);
 
     marching_cubes_initialized = 1;
   }
