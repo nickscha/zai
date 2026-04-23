@@ -16,6 +16,7 @@ LICENSE
 #include "zai_opengl.h"
 #include "zai_sdf_scene.h"
 #include "zai_sparse_grid.h"
+#include "zai_marching_cubes.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
@@ -1726,6 +1727,10 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
   zai_ui_render_instances_count = 0;
 }
 
+/* #############################################################################
+ * # [SECTION] Clipmap Terrain
+ * #############################################################################
+ */
 #define GRID_RES 65 /* 65 */
 #define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
@@ -2037,6 +2042,18 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     }
   }
   ZAI_PROFILER_END(render_terrain);
+}
+
+/* #############################################################################
+ * # [SECTION] Marching Cubes
+ * #############################################################################
+ */
+ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
+{
+  (void)state;
+  (void)zai_marching_cubes_corner_index_a_from_edge;
+  (void)zai_marching_cubes_corner_index_b_from_edge;
+  (void)zai_marching_cubes_triangulation;
 }
 
 /* #############################################################################
@@ -2448,10 +2465,12 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /*zai_render_grid(&state, &main_shader, main_vao);*/
       zai_render_ui(&state);
       zai_render_terrain(&state);
+      zai_render_marching_cubes(&state);
 
       (void)zai_render_grid;
       (void)zai_render_ui;
       (void)zai_render_terrain;
+      (void)zai_render_marching_cubes;
 
       /******************************/
       /* UI Rendering (F1 pressed)  */
