@@ -1985,7 +1985,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
         mouse_attached = !mouse_attached;
       }
 
-      /*
       if (mouse_attached)
       {
         f32 mouseSensitivity = 0.1f;
@@ -1998,7 +1997,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
           camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
         }
       }
-      */
 
       zai_camera_update(&camera);
     }
