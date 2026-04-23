@@ -2183,12 +2183,11 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.x = 0.0f;
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
+    ctx.density_grid = density_grid;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
     ZAI_PROFILER_END(setup_density_grid);
-
-    ctx.density_grid = density_grid;
 
     ZAI_PROFILER_BEGIN(setup_triangles);
     zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
