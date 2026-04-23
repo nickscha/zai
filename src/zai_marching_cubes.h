@@ -289,7 +289,8 @@ typedef struct zai_marching_cubes_vertex
 {
     zai_vec3 position;
     zai_vec3 normal;
-    i32 id[2];
+    i32 id[2]; /* used for vertex shadering (indexing) */
+
 } zai_marching_cubes_vertex;
 
 typedef struct zai_marching_cubes_triangle
@@ -297,15 +298,17 @@ typedef struct zai_marching_cubes_triangle
     zai_marching_cubes_vertex a;
     zai_marching_cubes_vertex b;
     zai_marching_cubes_vertex c;
+
 } zai_marching_cubes_triangle;
 
 typedef struct zai_marching_cubes_context
 {
     f32 *density_grid; /* 1D array representing 3D density [z][y][x] */
     i32 dim_size;      /* Number of points per axis (e.g., 32) */
-    f32 planet_size;
-    f32 iso_level;
+    f32 grid_size;     /*Total world-space size of the chunk */
+    f32 iso_level;     /* The "surface" is where density is 0 */
     zai_vec3 chunk_coord;
+
 } zai_marching_cubes_context;
 
 ZAI_API f32 zai_marching_cubes_sample_density(zai_marching_cubes_context *ctx, i32 x, i32 y, i32 z)
@@ -384,13 +387,13 @@ ZAI_API zai_marching_cubes_vertex zai_marching_cubes_create_vertex(zai_marching_
     zai_vec3 norm2;
 
     /* Convert grid coords to world space */
-    pos1.x = ((f32)x1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
-    pos1.y = ((f32)y1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
-    pos1.z = ((f32)z1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
+    pos1.x = ((f32)x1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
+    pos1.y = ((f32)y1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
+    pos1.z = ((f32)z1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
 
-    pos2.x = ((f32)x2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
-    pos2.y = ((f32)y2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
-    pos2.z = ((f32)z2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->planet_size;
+    pos2.x = ((f32)x2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
+    pos2.y = ((f32)y2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
+    pos2.z = ((f32)z2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
 
     d1 = zai_marching_cubes_sample_density(ctx, x1, y1, z1);
     d2 = zai_marching_cubes_sample_density(ctx, x2, y2, z2);
@@ -434,8 +437,7 @@ void zai_marching_cubes_generate(zai_marching_cubes_context *ctx, zai_marching_c
                 i32 corners[8][3];
 
                 /* Corner offsets (matching Lague's order) */
-
-                for (i = 0; i < 8; i++)
+                for (i = 0; i < 8; ++i)
                 {
                     corners[i][0] = x + offsets[i][0];
                     corners[i][1] = y + offsets[i][1];
