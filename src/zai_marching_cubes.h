@@ -15,6 +15,8 @@
 static i32 zai_marching_cubes_corner_index_a_from_edge[12] = {0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3};
 static i32 zai_marching_cubes_corner_index_b_from_edge[12] = {1, 2, 3, 0, 5, 6, 7, 4, 4, 5, 6, 7};
 
+static i32 zai_marching_cubes_offsets[8][3] = {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}, {0, 1, 0}, {1, 1, 0}, {1, 1, 1}, {0, 1, 1}};
+
 /*
     Values from http://paulbourke.net/geometry/polygonise/
     Lookup table giving the index of the edge that each vertex lies on for any cube configuration.
@@ -414,10 +416,8 @@ ZAI_API zai_marching_cubes_vertex zai_marching_cubes_create_vertex(zai_marching_
     return v;
 }
 
-void zai_marching_cubes_generate(zai_marching_cubes_context *ctx, zai_marching_cubes_triangle *out_triangles, i32 *out_count)
+ZAI_API void zai_marching_cubes_generate(zai_marching_cubes_context *ctx, zai_marching_cubes_triangle *out_triangles, i32 *out_count)
 {
-    static i32 offsets[8][3] = {{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {0, 0, 1}, {0, 1, 0}, {1, 1, 0}, {1, 1, 1}, {0, 1, 1}};
-
     i32 x;
     i32 y;
     i32 z;
@@ -436,12 +436,12 @@ void zai_marching_cubes_generate(zai_marching_cubes_context *ctx, zai_marching_c
                 i32 cube_config = 0;
                 i32 corners[8][3];
 
-                /* Corner offsets (matching Lague's order) */
+                /* Corner zai_marching_cubes_offsets (matching Lague's order) */
                 for (i = 0; i < 8; ++i)
                 {
-                    corners[i][0] = x + offsets[i][0];
-                    corners[i][1] = y + offsets[i][1];
-                    corners[i][2] = z + offsets[i][2];
+                    corners[i][0] = x + zai_marching_cubes_offsets[i][0];
+                    corners[i][1] = y + zai_marching_cubes_offsets[i][1];
+                    corners[i][2] = z + zai_marching_cubes_offsets[i][2];
                     if (zai_marching_cubes_sample_density(ctx, corners[i][0], corners[i][1], corners[i][2]) < ctx->iso_level)
                     {
                         cube_config |= (1 << i);
