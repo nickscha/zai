@@ -2101,8 +2101,6 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
   if (!marching_cubes_initialized)
   {
-    ZAI_PROFILER_BEGIN(setup_marching_cubes);
-
     camera = zai_camera_init();
     camera.position.y = 10.0f;
     camera.position.z = 85.0f;
@@ -2135,6 +2133,8 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       }
     }
 
+    ZAI_PROFILER_BEGIN(setup_marching_cubes);
+
     ctx.dim_size = DIM;
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
@@ -2148,6 +2148,8 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
     zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
 
+    ZAI_PROFILER_END(setup_marching_cubes);
+
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glGenBuffers(1, &vbo);
@@ -2159,8 +2161,6 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
 
     marching_cubes_initialized = 1;
-
-    ZAI_PROFILER_END(setup_marching_cubes);
   }
 
   /* Render */
