@@ -397,6 +397,9 @@ ZAI_API zai_marching_cubes_vertex zai_marching_cubes_create_vertex(zai_marching_
     pos2.y = ((f32)y2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
     pos2.z = ((f32)z2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
 
+    pos1 = zai_vec3_add(pos1, ctx->chunk_coord);
+    pos2 = zai_vec3_add(pos2, ctx->chunk_coord);
+
     d1 = zai_marching_cubes_sample_density(ctx, x1, y1, z1);
     d2 = zai_marching_cubes_sample_density(ctx, x2, y2, z2);
 

@@ -2056,25 +2056,25 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
  * # [SECTION] Marching Cubes
  * #############################################################################
  */
-void initialize_density_grid(f32 *grid, i32 dim, f32 world_size)
+void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
 {
   i32 x, y, z;
   f32 scale = 0.05f;
 
   for (z = 0; z < dim; ++z)
   {
-    /* Calculate world Z relative to the center, matching zai_create_vertex logic */
-    f32 world_z = ((f32)z / ((f32)dim - 1.0f) - 0.5f) * world_size;
+    f32 world_z = (((f32)z / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.z;
 
     for (x = 0; x < dim; ++x)
     {
-      f32 world_x = ((f32)x / ((f32)dim - 1.0f) - 0.5f) * world_size;
+      f32 world_x = (((f32)x / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.x;
+      
       f32 height = zai_sinf(world_x * scale) * 10.0f +
                    zai_cosf(world_z * scale) * 10.0f;
 
       for (y = 0; y < dim; ++y)
       {
-        f32 world_y = ((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size;
+        f32 world_y = (((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.y;
 
         /* Density: Positive = Inside, Negative = Outside */
         grid[z * dim * dim + y * dim + x] = height - world_y;
@@ -2138,11 +2138,11 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.dim_size = DIM;
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
-    ctx.chunk_coord.x = 0;
+    ctx.chunk_coord.x = 0.0f;
     ctx.chunk_coord.y = 0;
     ctx.chunk_coord.z = 0;
 
-    initialize_density_grid(density_grid, DIM, ctx.grid_size);
+    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
 
     ctx.density_grid = density_grid;
 
