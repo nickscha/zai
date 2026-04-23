@@ -382,13 +382,12 @@ ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_normal(
 ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     zai_marching_cubes_context *ctx,
     i32 x1, i32 y1, i32 z1,
-    i32 x2, i32 y2, i32 z2)
+    i32 x2, i32 y2, i32 z2,
+    f32 d1, f32 d2)
 {
     zai_marching_cubes_vertex v;
 
     f32 t;
-    f32 d1;
-    f32 d2;
 
     zai_vec3 pos1;
     zai_vec3 pos2;
@@ -406,9 +405,6 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
 
     pos1 = zai_vec3_add(pos1, ctx->chunk_coord);
     pos2 = zai_vec3_add(pos2, ctx->chunk_coord);
-
-    d1 = zai_marching_cubes_sample_density(ctx, x1, y1, z1);
-    d2 = zai_marching_cubes_sample_density(ctx, x2, y2, z2);
 
     /* Interpolation factor */
     t = (ctx->iso_level - d1) / (d2 - d1);
@@ -448,6 +444,7 @@ ZAI_API void zai_marching_cubes_generate(
             {
                 i32 cube_config = 0;
                 i32 corners[8][3];
+                f32 densities[8];
 
                 /* Corner zai_marching_cubes_offsets (matching Lague's order) */
                 for (i = 0; i < 8; ++i)
@@ -456,7 +453,9 @@ ZAI_API void zai_marching_cubes_generate(
                     corners[i][1] = y + zai_marching_cubes_offsets[i][1];
                     corners[i][2] = z + zai_marching_cubes_offsets[i][2];
 
-                    if (zai_marching_cubes_sample_density(ctx, corners[i][0], corners[i][1], corners[i][2]) < ctx->iso_level)
+                    densities[i] = zai_marching_cubes_sample_density(ctx, corners[i][0], corners[i][1], corners[i][2]);
+
+                    if (densities[i] < ctx->iso_level)
                     {
                         cube_config |= (1 << i);
                     }
@@ -499,9 +498,9 @@ ZAI_API void zai_marching_cubes_generate(
                     c0 = zai_marching_cubes_corner_index_a_from_edge[edge_idx_c];
                     c1 = zai_marching_cubes_corner_index_b_from_edge[edge_idx_c];
 
-                    out_triangles[*out_count].c = zai_marching_cubes_create_vertex(ctx, corners[a0][0], corners[a0][1], corners[a0][2], corners[a1][0], corners[a1][1], corners[a1][2]);
-                    out_triangles[*out_count].b = zai_marching_cubes_create_vertex(ctx, corners[b0][0], corners[b0][1], corners[b0][2], corners[b1][0], corners[b1][1], corners[b1][2]);
-                    out_triangles[*out_count].a = zai_marching_cubes_create_vertex(ctx, corners[c0][0], corners[c0][1], corners[c0][2], corners[c1][0], corners[c1][1], corners[c1][2]);
+                    out_triangles[*out_count].c = zai_marching_cubes_create_vertex(ctx, corners[a0][0], corners[a0][1], corners[a0][2], corners[a1][0], corners[a1][1], corners[a1][2], densities[a0], densities[a1]);
+                    out_triangles[*out_count].b = zai_marching_cubes_create_vertex(ctx, corners[b0][0], corners[b0][1], corners[b0][2], corners[b1][0], corners[b1][1], corners[b1][2], densities[b0], densities[b1]);
+                    out_triangles[*out_count].a = zai_marching_cubes_create_vertex(ctx, corners[c0][0], corners[c0][1], corners[c0][2], corners[c1][0], corners[c1][1], corners[c1][2], densities[c0], densities[c1]);
 
                     (*out_count)++;
                 }
