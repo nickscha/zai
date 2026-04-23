@@ -2077,7 +2077,7 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
         f32 world_y = (((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.y;
 
         /* Testing */
-        if (x == 16 && y == 16 && z == 16)
+        if (x == dim / 2 && y == dim / 2 && z == dim / 2)
         {
           height += 10.0f;
         }

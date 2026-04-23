@@ -313,7 +313,7 @@ typedef struct zai_marching_cubes_context
 
 } zai_marching_cubes_context;
 
-ZAI_API f32 zai_marching_cubes_sample_density(zai_marching_cubes_context *ctx, i32 x, i32 y, i32 z)
+ZAI_API ZAI_INLINE f32 zai_marching_cubes_sample_density(zai_marching_cubes_context *ctx, i32 x, i32 y, i32 z)
 {
     /* Clamp coordinates to grid boundaries */
     if (x < 0)
@@ -349,7 +349,7 @@ ZAI_API f32 zai_marching_cubes_sample_density(zai_marching_cubes_context *ctx, i
     return ctx->density_grid[z * ctx->dim_size * ctx->dim_size + y * ctx->dim_size + x];
 }
 
-ZAI_API zai_vec3 zai_marching_cubes_calculate_normal(zai_marching_cubes_context *ctx, i32 x, i32 y, i32 z)
+ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_normal(zai_marching_cubes_context *ctx, i32 x, i32 y, i32 z)
 {
     f32 dx = zai_marching_cubes_sample_density(ctx, x + 1, y, z) - zai_marching_cubes_sample_density(ctx, x - 1, y, z);
     f32 dy = zai_marching_cubes_sample_density(ctx, x, y + 1, z) - zai_marching_cubes_sample_density(ctx, x, y - 1, z);
@@ -375,7 +375,7 @@ ZAI_API zai_vec3 zai_marching_cubes_calculate_normal(zai_marching_cubes_context 
     return n;
 }
 
-ZAI_API zai_marching_cubes_vertex zai_marching_cubes_create_vertex(zai_marching_cubes_context *ctx, i32 x1, i32 y1, i32 z1, i32 x2, i32 y2, i32 z2)
+ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(zai_marching_cubes_context *ctx, i32 x1, i32 y1, i32 z1, i32 x2, i32 y2, i32 z2)
 {
     zai_marching_cubes_vertex v;
 
@@ -445,10 +445,16 @@ ZAI_API void zai_marching_cubes_generate(zai_marching_cubes_context *ctx, zai_ma
                     corners[i][0] = x + zai_marching_cubes_offsets[i][0];
                     corners[i][1] = y + zai_marching_cubes_offsets[i][1];
                     corners[i][2] = z + zai_marching_cubes_offsets[i][2];
+
                     if (zai_marching_cubes_sample_density(ctx, corners[i][0], corners[i][1], corners[i][2]) < ctx->iso_level)
                     {
                         cube_config |= (1 << i);
                     }
+                }
+
+                if (cube_config == 0 || cube_config == 255)
+                {
+                    continue;
                 }
 
                 for (i = 0; i < 16; i += 3)
