@@ -2068,7 +2068,7 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
     for (x = 0; x < dim; ++x)
     {
       f32 world_x = (((f32)x / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.x;
-      
+
       f32 height = zai_sinf(world_x * scale) * 10.0f +
                    zai_cosf(world_z * scale) * 10.0f;
 
@@ -2076,8 +2076,50 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
       {
         f32 world_y = (((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.y;
 
+        /* Testing */
+        if (x == 16 && y == 16 && z == 16)
+        {
+          height += 10.0f;
+        }
+
         /* Density: Positive = Inside, Negative = Outside */
         grid[z * dim * dim + y * dim + x] = height - world_y;
+      }
+    }
+  }
+}
+
+void initialize_density_grid_3d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
+{
+  i32 x, y, z;
+  /* Scale determines how "zoomed in" the noise is */
+  f32 scale = 0.08f;
+
+  for (z = 0; z < dim; ++z)
+  {
+    f32 wz = (((f32)z / ((f32)dim - 1.0f)) - 0.5f) * world_size + chunk_coord.z;
+
+    for (y = 0; y < dim; ++y)
+    {
+      f32 wy = (((f32)y / ((f32)dim - 1.0f)) - 0.5f) * world_size + chunk_coord.y;
+
+      for (x = 0; x < dim; ++x)
+      {
+        f32 wx = (((f32)x / ((f32)dim - 1.0f)) - 0.5f) * world_size + chunk_coord.x;
+
+        /* 3D "Noise" using overlapping sine waves */
+        /* This creates a periodic but complex 3D pattern */
+        f32 density = zai_sinf(wx * scale) +
+                      zai_sinf(wy * scale) +
+                      zai_sinf(wz * scale);
+
+        /* Optional: Add a second octave for more detail */
+        density += zai_sinf(wx * scale * 2.1f) * 0.5f;
+        density += zai_sinf(wy * scale * 2.1f) * 0.5f;
+        density += zai_sinf(wz * scale * 2.1f) * 0.5f;
+
+        /* Shift density so 0.0 is the average 'surface' */
+        grid[z * dim * dim + y * dim + x] = density;
       }
     }
   }
@@ -2088,6 +2130,7 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 {
   static u8 marching_cubes_initialized = 0;
+
   static f32 density_grid[DIM * DIM * DIM];
   static zai_marching_cubes_triangle triangle_buffer[MAX_TRIANGLES];
   static zai_marching_cubes_context ctx = {0};
@@ -2101,6 +2144,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
   if (!marching_cubes_initialized)
   {
+
     camera = zai_camera_init();
     camera.position.y = 10.0f;
     camera.position.z = 85.0f;
@@ -2139,8 +2183,8 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
     ctx.chunk_coord.x = 0.0f;
-    ctx.chunk_coord.y = 0;
-    ctx.chunk_coord.z = 0;
+    ctx.chunk_coord.y = 0.0f;
+    ctx.chunk_coord.z = 0.0f;
 
     initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
 
@@ -2234,8 +2278,10 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glEnable(GL_DEPTH_TEST);
-      glEnable(GL_CULL_FACE);
-      glCullFace(GL_BACK);
+      /*
+       glEnable(GL_CULL_FACE);
+       glCullFace(GL_BACK);
+       */
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
       glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
@@ -2243,7 +2289,9 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
+      /*
       glDisable(GL_CULL_FACE);
+      */
     }
   }
   ZAI_PROFILER_END(render_marching_cubes);
