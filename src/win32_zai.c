@@ -1663,7 +1663,7 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
         zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
 
         knob_width = 10;
-        knob_x = slider.x + (u32)(((f32)state->terrain_lod_count / 15.0f) * (f32)(slider.w - knob_width));
+        knob_x = slider.x + (u32)(zai_remap((f32)state->terrain_lod_count, 1.0f, 15.0f, 0.0f, 1.0f) * (f32)(slider.w - knob_width));
 
         knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
 
@@ -1682,7 +1682,7 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
         zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
 
         knob_width = 10;
-        knob_x = slider.x + (u32)(((f32)state->terrain_base_scale / 1024.0f) * (f32)(slider.w - knob_width));
+        knob_x = slider.x + (u32)(zai_remap((f32)state->terrain_base_scale, 64.0f, 1024.0f, 0.0f, 1.0f) * (f32)(slider.w - knob_width));
 
         knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
 
