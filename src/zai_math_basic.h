@@ -118,4 +118,28 @@ ZAI_API ZAI_INLINE f32 zai_tanf(f32 x)
     return (zai_sinf(x) / zai_cosf(x));
 }
 
+ZAI_API ZAI_INLINE f32 zai_remap(f32 v, f32 in_min, f32 in_max, f32 out_min, f32 out_max)
+{
+    f32 t;
+
+    if (in_max == in_min)
+    {
+        return out_min;
+    }
+
+    t = (v - in_min) / (in_max - in_min);
+
+    if (t < 0.0f)
+    {
+        t = 0.0f;
+    }
+
+    if (t > 1.0f)
+    {
+        t = 1.0f;
+    }
+
+    return out_min + t * (out_max - out_min);
+}
+
 #endif /* ZAI_MATH_BASIC_H */
