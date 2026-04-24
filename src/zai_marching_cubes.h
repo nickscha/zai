@@ -354,30 +354,6 @@ ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_gradient(
     return g;
 }
 
-ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_normal(
-    zai_marching_cubes_context *ctx,
-    i32 x, i32 y, i32 z)
-{
-    zai_vec3 g = zai_marching_cubes_calculate_gradient(ctx, x, y, z);
-    f32 mag_sq = g.x * g.x + g.y * g.y + g.z * g.z;
-    zai_vec3 n;
-
-    if (mag_sq < 0.000001f)
-    {
-        n.x = 0.0f;
-        n.y = 1.0f;
-        n.z = 0.0f;
-    }
-    else
-    {
-        f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
-        n.x = g.x * inv_mag;
-        n.y = g.y * inv_mag;
-        n.z = g.z * inv_mag;
-    }
-    return n;
-}
-
 ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     zai_marching_cubes_context *ctx,
     f32 scale, f32 offset,
