@@ -305,11 +305,11 @@ typedef struct zai_marching_cubes_triangle
 
 typedef struct zai_marching_cubes_context
 {
-    f32 *density_grid; /* 1D array representing 3D density [z][y][x] */
-    i32 dim_size;      /* Number of points per axis (e.g., 32) */
-    f32 grid_size;     /*Total world-space size of the chunk */
-    f32 iso_level;     /* The "surface" is where density is 0 */
-    zai_vec3 chunk_coord;
+    f32 *density_grid;    /* 1D array representing 3D density [z][y][x] */
+    i32 dim_size;         /* Number of points per axis (e.g., 32) */
+    f32 grid_size;        /*Total world-space size of the chunk */
+    f32 iso_level;        /* The "surface" is where density is 0 */
+    zai_vec3 chunk_coord; /* The center position of the chunk */
 
 } zai_marching_cubes_context;
 
@@ -406,7 +406,6 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     v.position.y = p1y + (p2y - p1y) * t;
     v.position.z = p1z + (p2z - p1z) * t;
 
-    /* Fetch RAW gradients, interpolate them, and normalize ONCE. Cuts sqrtf calls by 50% */
     g1 = zai_marching_cubes_calculate_gradient(ctx, x1, y1, z1);
     g2 = zai_marching_cubes_calculate_gradient(ctx, x2, y2, z2);
 
