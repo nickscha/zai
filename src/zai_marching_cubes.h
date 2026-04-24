@@ -414,7 +414,7 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
 ZAI_API void zai_marching_cubes_generate(
     zai_marching_cubes_context *ctx,
     zai_marching_cubes_triangle *out_triangles,
-    i32 *out_count)
+    i32 *out_triangles_count)
 {
     i32 x;
     i32 y;
@@ -510,7 +510,7 @@ ZAI_API void zai_marching_cubes_generate(
         }
     }
 
-    *out_count = count;
+    *out_triangles_count = count;
 }
 
 #endif /* ZAI_MARCHING_CUBES_H */
