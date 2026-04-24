@@ -321,40 +321,66 @@ ZAI_API ZAI_INLINE f32 zai_marching_cubes_sample_density(
     x = (x < 0) ? 0 : ((x >= ctx->dim_size) ? ctx->dim_size - 1 : x);
     y = (y < 0) ? 0 : ((y >= ctx->dim_size) ? ctx->dim_size - 1 : y);
     z = (z < 0) ? 0 : ((z >= ctx->dim_size) ? ctx->dim_size - 1 : z);
-    
+
     return ctx->density_grid[z * ctx->dim_size * ctx->dim_size + y * ctx->dim_size + x];
+}
+
+ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_gradient(
+    zai_marching_cubes_context *ctx,
+    i32 x, i32 y, i32 z)
+{
+    zai_vec3 g;
+
+    if (x > 0 && x < ctx->dim_size - 1 &&
+        y > 0 && y < ctx->dim_size - 1 &&
+        z > 0 && z < ctx->dim_size - 1)
+    {
+        f32 *grid = ctx->density_grid;
+        i32 dim = ctx->dim_size;
+        i32 idx = z * dim * dim + y * dim + x;
+
+        g.x = grid[idx + 1] - grid[idx - 1];
+        g.y = grid[idx + dim] - grid[idx - dim];
+        g.z = grid[idx + dim * dim] - grid[idx - dim * dim];
+    }
+    else
+    {
+        /* Edge cases fallback to safe bounds-checked sampling */
+        g.x = zai_marching_cubes_sample_density(ctx, x + 1, y, z) - zai_marching_cubes_sample_density(ctx, x - 1, y, z);
+        g.y = zai_marching_cubes_sample_density(ctx, x, y + 1, z) - zai_marching_cubes_sample_density(ctx, x, y - 1, z);
+        g.z = zai_marching_cubes_sample_density(ctx, x, y, z + 1) - zai_marching_cubes_sample_density(ctx, x, y, z - 1);
+    }
+
+    return g;
 }
 
 ZAI_API ZAI_INLINE zai_vec3 zai_marching_cubes_calculate_normal(
     zai_marching_cubes_context *ctx,
     i32 x, i32 y, i32 z)
 {
-    f32 dx = zai_marching_cubes_sample_density(ctx, x + 1, y, z) - zai_marching_cubes_sample_density(ctx, x - 1, y, z);
-    f32 dy = zai_marching_cubes_sample_density(ctx, x, y + 1, z) - zai_marching_cubes_sample_density(ctx, x, y - 1, z);
-    f32 dz = zai_marching_cubes_sample_density(ctx, x, y, z + 1) - zai_marching_cubes_sample_density(ctx, x, y, z - 1);
-
-    f32 mag = zai_sqrtf(dx * dx + dy * dy + dz * dz);
-
+    zai_vec3 g = zai_marching_cubes_calculate_gradient(ctx, x, y, z);
+    f32 mag_sq = g.x * g.x + g.y * g.y + g.z * g.z;
     zai_vec3 n;
 
-    if (mag == 0)
+    if (mag_sq < 0.000001f)
     {
-        n.x = 0;
-        n.y = 1;
-        n.z = 0;
-
-        return n;
+        n.x = 0.0f;
+        n.y = 1.0f;
+        n.z = 0.0f;
     }
-
-    n.x = dx / mag;
-    n.y = dy / mag;
-    n.z = dz / mag;
-
+    else
+    {
+        f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
+        n.x = g.x * inv_mag;
+        n.y = g.y * inv_mag;
+        n.z = g.z * inv_mag;
+    }
     return n;
 }
 
 ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     zai_marching_cubes_context *ctx,
+    f32 scale, f32 offset,
     i32 x1, i32 y1, i32 z1,
     i32 x2, i32 y2, i32 z2,
     f32 d1, f32 d2)
@@ -362,34 +388,48 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     zai_marching_cubes_vertex v;
 
     f32 t;
+    zai_vec3 g1, g2;
+    f32 mag_sq;
 
-    zai_vec3 pos1;
-    zai_vec3 pos2;
-    zai_vec3 norm1;
-    zai_vec3 norm2;
+    /* Grid to world space using precomputed scale/offset to save operations */
+    f32 p1x = (f32)x1 * scale - offset + ctx->chunk_coord.x;
+    f32 p1y = (f32)y1 * scale - offset + ctx->chunk_coord.y;
+    f32 p1z = (f32)z1 * scale - offset + ctx->chunk_coord.z;
 
-    /* Convert grid coords to world space */
-    pos1.x = ((f32)x1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
-    pos1.y = ((f32)y1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
-    pos1.z = ((f32)z1 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
+    f32 p2x = (f32)x2 * scale - offset + ctx->chunk_coord.x;
+    f32 p2y = (f32)y2 * scale - offset + ctx->chunk_coord.y;
+    f32 p2z = (f32)z2 * scale - offset + ctx->chunk_coord.z;
 
-    pos2.x = ((f32)x2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
-    pos2.y = ((f32)y2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
-    pos2.z = ((f32)z2 / ((f32)ctx->dim_size - 1.0f) - 0.5f) * ctx->grid_size;
-
-    pos1 = zai_vec3_add(pos1, ctx->chunk_coord);
-    pos2 = zai_vec3_add(pos2, ctx->chunk_coord);
-
-    /* Interpolation factor */
     t = (ctx->iso_level - d1) / (d2 - d1);
 
-    v.position = zai_vec3_add(pos1, zai_vec3_mulf(zai_vec3_sub(pos2, pos1), t));
+    v.position.x = p1x + (p2x - p1x) * t;
+    v.position.y = p1y + (p2y - p1y) * t;
+    v.position.z = p1z + (p2z - p1z) * t;
 
-    norm1 = zai_marching_cubes_calculate_normal(ctx, x1, y1, z1);
-    norm2 = zai_marching_cubes_calculate_normal(ctx, x2, y2, z2);
-    v.normal = zai_vec3_add(norm1, zai_vec3_mulf(zai_vec3_sub(norm2, norm1), t));
+    /* Fetch RAW gradients, interpolate them, and normalize ONCE. Cuts sqrtf calls by 50% */
+    g1 = zai_marching_cubes_calculate_gradient(ctx, x1, y1, z1);
+    g2 = zai_marching_cubes_calculate_gradient(ctx, x2, y2, z2);
 
-    /* Vertex ID for indexing (optional) */
+    v.normal.x = g1.x + (g2.x - g1.x) * t;
+    v.normal.y = g1.y + (g2.y - g1.y) * t;
+    v.normal.z = g1.z + (g2.z - g1.z) * t;
+
+    mag_sq = v.normal.x * v.normal.x + v.normal.y * v.normal.y + v.normal.z * v.normal.z;
+
+    if (mag_sq < 0.000001f)
+    {
+        v.normal.x = 0.0f;
+        v.normal.y = 1.0f;
+        v.normal.z = 0.0f;
+    }
+    else
+    {
+        f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
+        v.normal.x *= inv_mag;
+        v.normal.y *= inv_mag;
+        v.normal.z *= inv_mag;
+    }
+
     v.id[0] = z1 * ctx->dim_size * ctx->dim_size + y1 * ctx->dim_size + x1;
     v.id[1] = z2 * ctx->dim_size * ctx->dim_size + y2 * ctx->dim_size + x2;
 
@@ -406,12 +446,13 @@ ZAI_API void zai_marching_cubes_generate(
     i32 z;
     i32 i;
     i32 j;
-
     i32 num_cubes = ctx->dim_size - 1;
-
     i32 row_stride = ctx->dim_size;
     i32 sli_stride = ctx->dim_size * ctx->dim_size;
     f32 iso = ctx->iso_level;
+    f32 scale = ctx->grid_size / (f32)num_cubes;
+    f32 offset = ctx->grid_size * 0.5f;
+    i32 count = 0;
     i32 corner_ptrs[8];
 
     for (i = 0; i < 8; ++i)
@@ -420,8 +461,6 @@ ZAI_API void zai_marching_cubes_generate(
                          (zai_marching_cubes_offsets[i][1] * row_stride) +
                          (zai_marching_cubes_offsets[i][2] * sli_stride);
     }
-
-    *out_count = 0;
 
     for (z = 0; z < num_cubes; ++z)
     {
@@ -462,12 +501,11 @@ ZAI_API void zai_marching_cubes_generate(
                     for (j = 0; j < 3; ++j)
                     {
                         i32 edge_idx = edge_indices[j];
-
                         i32 a = zai_marching_cubes_corner_index_a_from_edge[edge_idx];
                         i32 b = zai_marching_cubes_corner_index_b_from_edge[edge_idx];
 
                         zai_marching_cubes_vertex v = zai_marching_cubes_create_vertex(
-                            ctx,
+                            ctx, scale, offset,
                             x + zai_marching_cubes_offsets[a][0],
                             y + zai_marching_cubes_offsets[a][1],
                             z + zai_marching_cubes_offsets[a][2],
@@ -477,26 +515,27 @@ ZAI_API void zai_marching_cubes_generate(
                             densities[a],
                             densities[b]);
 
-                        /* Map j=0->c, 1->b, 2->a to maintain your winding order */
                         if (j == 0)
                         {
-                            out_triangles[*out_count].c = v;
+                            out_triangles[count].c = v;
                         }
                         else if (j == 1)
                         {
-                            out_triangles[*out_count].b = v;
+                            out_triangles[count].b = v;
                         }
                         else
                         {
-                            out_triangles[*out_count].a = v;
+                            out_triangles[count].a = v;
                         }
                     }
 
-                    (*out_count)++;
+                    count++;
                 }
             }
         }
     }
+
+    *out_count = count;
 }
 
 #endif /* ZAI_MARCHING_CUBES_H */
