@@ -318,36 +318,10 @@ ZAI_API ZAI_INLINE f32 zai_marching_cubes_sample_density(
     i32 x, i32 y, i32 z)
 {
     /* Clamp coordinates to grid boundaries */
-    if (x < 0)
-    {
-        x = 0;
-    }
-
-    if (x >= ctx->dim_size)
-    {
-        x = ctx->dim_size - 1;
-    }
-
-    if (y < 0)
-    {
-        y = 0;
-    }
-
-    if (y >= ctx->dim_size)
-    {
-        y = ctx->dim_size - 1;
-    }
-
-    if (z < 0)
-    {
-        z = 0;
-    }
-
-    if (z >= ctx->dim_size)
-    {
-        z = ctx->dim_size - 1;
-    }
-
+    x = (x < 0) ? 0 : ((x >= ctx->dim_size) ? ctx->dim_size - 1 : x);
+    y = (y < 0) ? 0 : ((y >= ctx->dim_size) ? ctx->dim_size - 1 : y);
+    z = (z < 0) ? 0 : ((z >= ctx->dim_size) ? ctx->dim_size - 1 : z);
+    
     return ctx->density_grid[z * ctx->dim_size * ctx->dim_size + y * ctx->dim_size + x];
 }
 
