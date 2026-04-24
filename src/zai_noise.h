@@ -39,7 +39,7 @@ ZAI_API ZAI_INLINE void zai_noise_seed(u32 seed)
     for (i = 255; i > 0; --i)
     {
         unsigned r = zai_noise_lcg_next() % (u32)(i + 1);
-        zai_noise_swap_byte(&zai_noise_permutations[i], &zai_noise_permutations[(int)r]);
+        zai_noise_swap_byte(&zai_noise_permutations[i], &zai_noise_permutations[(i32)r]);
     }
 
     for (i = 0; i < 256; ++i)
