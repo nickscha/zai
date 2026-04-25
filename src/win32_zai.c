@@ -2058,7 +2058,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
  * # [SECTION] Marching Cubes
  * #############################################################################
  */
-void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
+void initialize_density_grid_2d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
 {
   i32 x, y, z;
   f32 scale = 0.05f;
@@ -2091,11 +2091,13 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
   }
 }
 
-void initialize_density_grid_3d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
+void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
 {
   i32 x, y, z;
-  /* Scale determines how "zoomed in" the noise is */
-  f32 scale = 0.08f;
+  f32 frequency = 0.03f;
+  f32 amplitude = 15.0f;
+  f32 lacunarity = 2.0f;
+  f32 gain = 0.5f;
 
   for (z = 0; z < dim; ++z)
   {
@@ -2109,19 +2111,21 @@ void initialize_density_grid_3d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chu
       {
         f32 wx = (((f32)x / ((f32)dim - 1.0f)) - 0.5f) * world_size + chunk_coord.x;
 
-        /* 3D "Noise" using overlapping sine waves */
-        /* This creates a periodic but complex 3D pattern */
+        f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, 6, lacunarity, gain);
+        f32 offset = -wy * 0.5f;
+        f32 final_density = (noise_val * amplitude) + offset;
+
+        /*
         f32 density = zai_sinf(wx * scale) +
                       zai_sinf(wy * scale) +
                       zai_sinf(wz * scale);
 
-        /* Optional: Add a second octave for more detail */
         density += zai_sinf(wx * scale * 2.1f) * 0.5f;
         density += zai_sinf(wy * scale * 2.1f) * 0.5f;
         density += zai_sinf(wz * scale * 2.1f) * 0.5f;
+        */
 
-        /* Shift density so 0.0 is the average 'surface' */
-        grid[z * dim * dim + y * dim + x] = density;
+        grid[z * dim * dim + y * dim + x] = final_density;
       }
     }
   }
@@ -2150,6 +2154,8 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     camera = zai_camera_init();
     camera.position.y = 10.0f;
     camera.position.z = 85.0f;
+
+    zai_noise_seed(0xDEADBEEF); /* 1234 */
 
     /* Shader Setup */
     {

@@ -1,5 +1,5 @@
-#ifndef ZAI_ZAI_H
-#define ZAI_ZAI_H
+#ifndef ZAI_NOISE_H
+#define ZAI_NOISE_H
 
 #include "zai_types.h"
 #include "zai_math_linear_algebra.h"
@@ -151,4 +151,20 @@ ZAI_API ZAI_INLINE f32 zai_noise_perlin_3(f32 x, f32 y, f32 z, f32 freq)
     return zai_noise_lerp(y1, y2, w) * 0.70710678f; /* normalize -1 to 1 */
 }
 
-#endif /* ZAI_ZAI_H */
+ZAI_API ZAI_INLINE f32 zai_noise_perlin_3_fbm(f32 x, f32 y, f32 z, f32 frequency, i32 octaves, f32 lacunarity, f32 gain)
+{
+    i32 i;
+    f32 sum = 0, amp = 1, f = frequency, norm = 0;
+
+    for (i = 0; i < octaves; ++i)
+    {
+        sum += amp * zai_noise_perlin_3(x, y, z, f);
+        norm += amp;
+        f *= lacunarity;
+        amp *= gain;
+    }
+
+    return sum / norm;
+}
+
+#endif /* ZAI_NOISE_H */
