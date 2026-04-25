@@ -162,4 +162,90 @@ ZAI_API ZAI_INLINE f32 zai_noise_perlin_3_fbm(f32 x, f32 y, f32 z, f32 frequency
     return sum / norm;
 }
 
+/* #############################################################################
+ * # [SECTION] Noise Fast
+ * #############################################################################
+ */
+#define ZAI_NOISE_FADE(t) (t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f))
+#define ZAI_NOISE_LERP(t, a, b) (a + t * (b - a))
+
+ZAI_API ZAI_INLINE i32 zai_noise_floorf(f32 x)
+{
+    i32 i = (i32)x;
+    return (x < (f32)i) ? i - 1 : i;
+}
+
+ZAI_API ZAI_INLINE f32 zai_noise_grad_dot(i32 hash, f32 x, f32 y, f32 z)
+{
+    i32 h = hash & 15;
+    f32 u = h < 8 ? x : y;
+    f32 v = h < 4 ? y : (h == 12 || h == 14 ? x : z);
+    return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
+}
+
+ZAI_API ZAI_INLINE i32 zai_noise_hash_coordinates(i32 x, i32 y, i32 z, i32 seed)
+{
+    i32 h = seed ^ x;
+    h = (h ^ y) * 0x27d4eb2d;
+    h = (h ^ z) * 0x27d4eb2d;
+    h = h ^ (h >> 15);
+    return h;
+}
+
+ZAI_API ZAI_INLINE f32 zai_noise_3d(f32 x, f32 y, f32 z, i32 seed)
+{
+    i32 X0 = zai_noise_floorf(x);
+    i32 Y0 = zai_noise_floorf(y);
+    i32 Z0 = zai_noise_floorf(z);
+
+    i32 X1 = X0 + 1;
+    i32 Y1 = Y0 + 1;
+    i32 Z1 = Z0 + 1;
+
+    f32 xf = x - (f32)X0;
+    f32 yf = y - (f32)Y0;
+    f32 zf = z - (f32)Z0;
+
+    f32 u = ZAI_NOISE_FADE(xf);
+    f32 v = ZAI_NOISE_FADE(yf);
+    f32 w = ZAI_NOISE_FADE(zf);
+
+    /* Calculate gradients for all 8 corners of the cell */
+    f32 g000 = zai_noise_grad_dot(zai_noise_hash_coordinates(X0, Y0, Z0, seed), xf, yf, zf);
+    f32 g100 = zai_noise_grad_dot(zai_noise_hash_coordinates(X1, Y0, Z0, seed), xf - 1.0f, yf, zf);
+    f32 g010 = zai_noise_grad_dot(zai_noise_hash_coordinates(X0, Y1, Z0, seed), xf, yf - 1.0f, zf);
+    f32 g110 = zai_noise_grad_dot(zai_noise_hash_coordinates(X1, Y1, Z0, seed), xf - 1.0f, yf - 1.0f, zf);
+    f32 g001 = zai_noise_grad_dot(zai_noise_hash_coordinates(X0, Y0, Z1, seed), xf, yf, zf - 1.0f);
+    f32 g101 = zai_noise_grad_dot(zai_noise_hash_coordinates(X1, Y0, Z1, seed), xf - 1.0f, yf, zf - 1.0f);
+    f32 g011 = zai_noise_grad_dot(zai_noise_hash_coordinates(X0, Y1, Z1, seed), xf, yf - 1.0f, zf - 1.0f);
+    f32 g111 = zai_noise_grad_dot(zai_noise_hash_coordinates(X1, Y1, Z1, seed), xf - 1.0f, yf - 1.0f, zf - 1.0f);
+
+    /* Trilinear interpolation */
+    f32 lerp_x0 = ZAI_NOISE_LERP(u, g000, g100);
+    f32 lerp_x1 = ZAI_NOISE_LERP(u, g010, g110);
+    f32 lerp_x2 = ZAI_NOISE_LERP(u, g001, g101);
+    f32 lerp_x3 = ZAI_NOISE_LERP(u, g011, g111);
+
+    f32 lerp_y0 = ZAI_NOISE_LERP(v, lerp_x0, lerp_x1);
+    f32 lerp_y1 = ZAI_NOISE_LERP(v, lerp_x2, lerp_x3);
+
+    return ZAI_NOISE_LERP(w, lerp_y0, lerp_y1);
+}
+
+ZAI_API ZAI_INLINE f32 zai_noise_3d_fbm(f32 x, f32 y, f32 z, f32 frequency, i32 octaves, f32 lacunarity, f32 gain, i32 seed)
+{
+    i32 i;
+    f32 sum = 0, amp = 1, f = frequency, norm = 0;
+
+    for (i = 0; i < octaves; ++i)
+    {
+        sum += amp * zai_noise_3d(x * f, y * f, z * f, seed);
+        norm += amp;
+        f *= lacunarity;
+        amp *= gain;
+    }
+
+    return sum / norm;
+}
+
 #endif /* ZAI_NOISE_H */
