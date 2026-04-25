@@ -124,7 +124,7 @@ ZAI_API ZAI_INLINE f32 zai_floorf(f32 x)
     return (x < (f32)i) ? (f32)(i - 1) : (f32)i;
 }
 
-ZAI_API ZAI_INLINE f32 zai_remap(f32 v, f32 in_min, f32 in_max, f32 out_min, f32 out_max)
+ZAI_API ZAI_INLINE f32 zai_remapf(f32 v, f32 in_min, f32 in_max, f32 out_min, f32 out_max)
 {
     f32 t;
 

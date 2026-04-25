@@ -53,11 +53,6 @@ ZAI_API ZAI_INLINE f32 zai_noise_fade(f32 t)
     return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
-ZAI_API ZAI_INLINE f32 zai_noise_lerp(f32 a, f32 b, f32 t)
-{
-    return a + t * (b - a);
-}
-
 ZAI_API ZAI_INLINE f32 zai_noise_dot2(f32 g[2], f32 x, f32 y)
 {
     return g[0] * x + g[1] * y;
@@ -93,11 +88,11 @@ ZAI_API ZAI_INLINE f32 zai_noise_perlin_2(f32 x, f32 y, f32 frequency)
     ba = perm[perm[X + 1] + Y];
     bb = perm[perm[X + 1] + Y + 1];
 
-    x1 = zai_noise_lerp(zai_noise_dot2(zai_noise_gradient_2_lut[aa & 7], xf, yf),
-                        zai_noise_dot2(zai_noise_gradient_2_lut[ba & 7], xf - 1, yf), u);
-    x2 = zai_noise_lerp(zai_noise_dot2(zai_noise_gradient_2_lut[ab & 7], xf, yf - 1),
-                        zai_noise_dot2(zai_noise_gradient_2_lut[bb & 7], xf - 1, yf - 1), u);
-    y1 = zai_noise_lerp(x1, x2, v);
+    x1 = zai_lerpf(zai_noise_dot2(zai_noise_gradient_2_lut[aa & 7], xf, yf),
+                   zai_noise_dot2(zai_noise_gradient_2_lut[ba & 7], xf - 1, yf), u);
+    x2 = zai_lerpf(zai_noise_dot2(zai_noise_gradient_2_lut[ab & 7], xf, yf - 1),
+                   zai_noise_dot2(zai_noise_gradient_2_lut[bb & 7], xf - 1, yf - 1), u);
+    y1 = zai_lerpf(x1, x2, v);
 
     return y1 * 0.70710678f; /* normalize -1 to 1 */
 }
@@ -136,19 +131,19 @@ ZAI_API ZAI_INLINE f32 zai_noise_perlin_3(f32 x, f32 y, f32 z, f32 freq)
     bab = perm[perm[perm[X + 1] + Y] + Z + 1];
     bbb = perm[perm[perm[X + 1] + Y + 1] + Z + 1];
 
-    x1 = zai_noise_lerp(zai_noise_dot3(zai_noise_gradient_3_lut[aaa & 15], xf, yf, zf),
-                        zai_noise_dot3(zai_noise_gradient_3_lut[baa & 15], xf - 1, yf, zf), u);
-    x2 = zai_noise_lerp(zai_noise_dot3(zai_noise_gradient_3_lut[aba & 15], xf, yf - 1, zf),
-                        zai_noise_dot3(zai_noise_gradient_3_lut[bba & 15], xf - 1, yf - 1, zf), u);
-    y1 = zai_noise_lerp(x1, x2, v);
+    x1 = zai_lerpf(zai_noise_dot3(zai_noise_gradient_3_lut[aaa & 15], xf, yf, zf),
+                   zai_noise_dot3(zai_noise_gradient_3_lut[baa & 15], xf - 1, yf, zf), u);
+    x2 = zai_lerpf(zai_noise_dot3(zai_noise_gradient_3_lut[aba & 15], xf, yf - 1, zf),
+                   zai_noise_dot3(zai_noise_gradient_3_lut[bba & 15], xf - 1, yf - 1, zf), u);
+    y1 = zai_lerpf(x1, x2, v);
 
-    x1 = zai_noise_lerp(zai_noise_dot3(zai_noise_gradient_3_lut[aab & 15], xf, yf, zf - 1),
-                        zai_noise_dot3(zai_noise_gradient_3_lut[bab & 15], xf - 1, yf, zf - 1), u);
-    x2 = zai_noise_lerp(zai_noise_dot3(zai_noise_gradient_3_lut[abb & 15], xf, yf - 1, zf - 1),
-                        zai_noise_dot3(zai_noise_gradient_3_lut[bbb & 15], xf - 1, yf - 1, zf - 1), u);
-    y2 = zai_noise_lerp(x1, x2, v);
+    x1 = zai_lerpf(zai_noise_dot3(zai_noise_gradient_3_lut[aab & 15], xf, yf, zf - 1),
+                   zai_noise_dot3(zai_noise_gradient_3_lut[bab & 15], xf - 1, yf, zf - 1), u);
+    x2 = zai_lerpf(zai_noise_dot3(zai_noise_gradient_3_lut[abb & 15], xf, yf - 1, zf - 1),
+                   zai_noise_dot3(zai_noise_gradient_3_lut[bbb & 15], xf - 1, yf - 1, zf - 1), u);
+    y2 = zai_lerpf(x1, x2, v);
 
-    return zai_noise_lerp(y1, y2, w) * 0.70710678f; /* normalize -1 to 1 */
+    return zai_lerpf(y1, y2, w) * 0.70710678f; /* normalize -1 to 1 */
 }
 
 ZAI_API ZAI_INLINE f32 zai_noise_perlin_3_fbm(f32 x, f32 y, f32 z, f32 frequency, i32 octaves, f32 lacunarity, f32 gain)
