@@ -2091,18 +2091,16 @@ void initialize_density_grid_2d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chu
   }
 }
 
-static f32 zai_noise_rotation[3][3] = {
-    {0.00f, 0.80f, 0.60f},
-    {-0.80f, 0.36f, -0.48f},
-    {-0.60f, -0.48f, 0.64f}};
-
-void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
+ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
 {
   i32 x, y, z;
-  f32 frequency = 0.03f;
-  f32 amplitude = 15.0f;
-  f32 lacunarity = 2.0f;
-  f32 gain = 0.5f;
+  static f32 frequency = 0.03f;
+  static f32 amplitude = 15.0f;
+  static f32 lacunarity = 2.0f;
+  static f32 gain = 0.5f;
+  static i32 seed = (i32)0xDEADBEEF;
+  static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
+  static i32 octaves = 6;
 
   for (z = 0; z < dim; ++z)
   {
@@ -2118,7 +2116,7 @@ void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_
 
         /* f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, 6, lacunarity, gain); */
         /* f32 noise_val = zai_noise_3d_fbm(wx, wy, wz, frequency, 6, lacunarity, gain, (i32)0xDEADBEEF); */
-        f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, 6, lacunarity, gain, (i32)0xDEADBEEF, zai_noise_rotation);
+        f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation);
         f32 offset = -wy * 0.6f;
         f32 final_density = (noise_val * amplitude) + offset;
 
