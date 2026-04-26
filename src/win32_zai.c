@@ -2136,7 +2136,7 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
   }
 }
 
-#define DIM 128
+#define DIM 129
 #define MAX_TRIANGLES (DIM * DIM * DIM * 5)
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 {
@@ -2197,6 +2197,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
     ctx.density_grid = density_grid;
+    ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);

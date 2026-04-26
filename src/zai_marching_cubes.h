@@ -1367,6 +1367,7 @@ ZAI_API void zai_marching_cubes_generate(
     i32 z;
     i32 i;
     i32 j;
+    i32 stride = 1 << ctx->lod_level;
     i32 num_cubes = ctx->dim_size - 1;
     i32 row_stride = ctx->dim_size;
     i32 sli_stride = ctx->dim_size * ctx->dim_size;
@@ -1378,19 +1379,20 @@ ZAI_API void zai_marching_cubes_generate(
 
     for (i = 0; i < 8; ++i)
     {
-        corner_ptrs[i] = zai_marching_cubes_offsets[i][0] +
-                         (zai_marching_cubes_offsets[i][1] * row_stride) +
-                         (zai_marching_cubes_offsets[i][2] * sli_stride);
+        corner_ptrs[i] = (zai_marching_cubes_offsets[i][0] * stride) +
+                         (zai_marching_cubes_offsets[i][1] * stride * row_stride) +
+                         (zai_marching_cubes_offsets[i][2] * stride * sli_stride);
     }
 
-    for (z = 0; z < num_cubes; ++z)
+    for (z = 0; z <= num_cubes - stride; z += stride)
     {
-        for (y = 0; y < num_cubes; ++y)
+        for (y = 0; y <= num_cubes - stride; y += stride)
         {
-            f32 *d_ptr = &ctx->density_grid[z * sli_stride + y * row_stride];
+            f32 *d_ptr_base = &ctx->density_grid[z * sli_stride + y * row_stride];
 
-            for (x = 0; x < num_cubes; ++x, ++d_ptr)
+            for (x = 0; x <= num_cubes - stride; x += stride)
             {
+                f32 *d_ptr = &d_ptr_base[x];
                 i32 cube_config = 0;
                 f32 densities[8];
 
@@ -1427,12 +1429,12 @@ ZAI_API void zai_marching_cubes_generate(
 
                         zai_marching_cubes_vertex v = zai_marching_cubes_create_vertex(
                             ctx, scale, offset,
-                            x + zai_marching_cubes_offsets[a][0],
-                            y + zai_marching_cubes_offsets[a][1],
-                            z + zai_marching_cubes_offsets[a][2],
-                            x + zai_marching_cubes_offsets[b][0],
-                            y + zai_marching_cubes_offsets[b][1],
-                            z + zai_marching_cubes_offsets[b][2],
+                            x + (zai_marching_cubes_offsets[a][0] * stride),
+                            y + (zai_marching_cubes_offsets[a][1] * stride),
+                            z + (zai_marching_cubes_offsets[a][2] * stride),
+                            x + (zai_marching_cubes_offsets[b][0] * stride),
+                            y + (zai_marching_cubes_offsets[b][1] * stride),
+                            z + (zai_marching_cubes_offsets[b][2] * stride),
                             densities[a],
                             densities[b]);
 
