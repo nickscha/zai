@@ -311,7 +311,18 @@ typedef struct zai_marching_cubes_context
     f32 iso_level;        /* The "surface" is where density is 0 */
     zai_vec3 chunk_coord; /* The center position of the chunk */
 
+    i32 lod_level;      /* 0 = stride 1, 1 = stride 2, 2 = stride 4 */
+    u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
+
 } zai_marching_cubes_context;
+
+/* Transition Mask Bit Definitions (consistent with the logic below) */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_PX (1 << 0) /* +X */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_NX (1 << 1) /* -X */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_PY (1 << 2) /* +Y */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_NY (1 << 3) /* -Y */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_PZ (1 << 4) /* +Z */
+#define ZAI_MARCHING_CUBES_TRANSITION_MASK_NZ (1 << 5) /* -Z */
 
 ZAI_API ZAI_INLINE f32 zai_marching_cubes_sample_density(
     zai_marching_cubes_context *ctx,
