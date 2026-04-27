@@ -124,6 +124,9 @@ static PFNGLGETINTEGERVPROC glGetIntegerv;
 typedef void (*PFNGLCULLFACEPROC)(u32 mode);
 static PFNGLCULLFACEPROC glCullFace;
 
+typedef void (*PFNGLDRAWELEMENTSPROC)(u32 mode, i32 count, i32 type, void *indices);
+static PFNGLDRAWELEMENTSPROC glDrawElements;
+
 /* Opengl 1.1+ until current */
 typedef u32 (*PFNGLCREATESHADERPROC)(u32 shaderType);
 static PFNGLCREATESHADERPROC glCreateShader;
@@ -275,6 +278,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glBlendFunc = (PFNGLBLENDFUNCPROC)load("glBlendFunc");
     glGetIntegerv = (PFNGLGETINTEGERVPROC)load("glGetIntegerv");
     glCullFace = (PFNGLCULLFACEPROC)load("glCullFace");
+    glDrawElements = (PFNGLDRAWELEMENTSPROC)load("glDrawElements");
 
     /* Opengl 1.1+ until current */
     glCreateShader = (PFNGLCREATESHADERPROC)load("glCreateShader");
@@ -314,6 +318,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glVertexAttribIPointer = (PFNGLVERTEXATTRIBIPOINTERPROC)load("glVertexAttribIPointer");
     glVertexAttribDivisor = (PFNGLVERTEXATTRIBDIVISORPROC)load("glVertexAttribDivisor");
     glDrawArraysInstanced = (PFNGLDRAWARRAYSINSTANCED)load("glDrawArraysInstanced");
+
 #pragma GCC diagnostic pop
 
     return 1;
