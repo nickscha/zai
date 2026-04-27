@@ -1398,17 +1398,34 @@ ZAI_API void zai_marching_cubes_generate(
 
                 /* Skip logic for transvoxel transition faces */
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PX) && (x == num_cubes - stride))
+                {
                     continue;
+                }
+                
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NX) && (x == 0))
+                {
                     continue;
+                }
+
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PY) && (y == num_cubes - stride))
+                {
                     continue;
+                }
+
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NY) && (y == 0))
+                {
                     continue;
+                }
+
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PZ) && (z == num_cubes - stride))
+                {
                     continue;
+                }
+
                 if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NZ) && (z == 0))
+                {
                     continue;
+                }
 
                 for (i = 0; i < 8; ++i)
                 {
