@@ -2102,8 +2102,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
   static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
   static i32 octaves = 6;
 
-  (void) seed;
-  (void) zai_noise_rotation;
+  (void)seed;
+  (void)zai_noise_rotation;
 
   for (z = 0; z < dim; ++z)
   {
@@ -2148,11 +2148,16 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
   static u8 marching_cubes_initialized = 0;
 
   static f32 density_grid[DIM * DIM * DIM];
-  static zai_marching_cubes_triangle triangle_buffer[MAX_TRIANGLES];
+  static zai_marching_cubes_triangle *triangle_buffer;
+  static zai_marching_cubes_triangle *triangle_buffer_1;
   static zai_marching_cubes_context ctx = {0};
+  static zai_marching_cubes_context ctx_1 = {0};
   static i32 triangle_count = 0;
+  static i32 triangle_count_1 = 0;
   static u32 vao;
+  static u32 vao_1;
   static u32 vbo;
+  static u32 vbo_1;
   static shader_marching_cubes marching_cubes_shader;
 
   static zai_camera camera = {0};
@@ -2195,6 +2200,9 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       }
     }
 
+    triangle_buffer = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    triangle_buffer_1 = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
     ctx.dim_size = DIM;
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
@@ -2202,6 +2210,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
     ctx.density_grid = density_grid;
+    ctx.transition_mask = 0;
     ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
@@ -2217,6 +2226,34 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, triangle_count * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
+
+    ctx_1.dim_size = DIM;
+    ctx_1.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx_1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx_1.chunk_coord.x = 0.0f;
+    ctx_1.chunk_coord.y = 0.0f;
+    ctx_1.chunk_coord.z = -100.0f;
+    ctx_1.density_grid = density_grid;
+    ctx_1.transition_mask = ZAI_MARCHING_CUBES_TRANSITION_MASK_PZ;
+    ctx_1.lod_level = 1;
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_triangles_1);
+    zai_marching_cubes_generate(&ctx_1, triangle_buffer_1, &triangle_count_1);
+    ZAI_PROFILER_END(setup_triangles_1);
+
+    glGenVertexArrays(1, &vao_1);
+    glBindVertexArray(vao_1);
+    glGenBuffers(1, &vbo_1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_1);
+    glBufferData(GL_ARRAY_BUFFER, triangle_count_1 * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer_1, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
     glEnableVertexAttribArray(1);
@@ -2305,8 +2342,13 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
       glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+
       glBindVertexArray(vao);
       glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
+
+      glBindVertexArray(vao_1);
+      glDrawArrays(GL_TRIANGLES, 0, triangle_count_1 * 3);
+
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
       /*
@@ -2749,7 +2791,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       if (state.ui_enabled)
       {
 
-#define GLYPH_BUFFER_SIZE 1024
+#define GLYPH_BUFFER_SIZE 2048
         static glyph glyph_buffer[GLYPH_BUFFER_SIZE];
         static u32 glyph_buffer_count = 0; /* Total glyph count */
         static u32 glyph_count_static = 0; /* Static glyphs only need to be buffered once */

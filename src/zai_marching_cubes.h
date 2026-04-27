@@ -1357,6 +1357,29 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
     return v;
 }
 
+ZAI_API ZAI_INLINE void zai_marching_cubes_get_face_coords(i32 face_idx, i32 face_depth, i32 u, i32 v, i32 *x, i32 *y, i32 *z) {
+    switch(face_idx) {
+        case 0: *x = face_depth; *y = v; *z = u; break; /* +X */
+        case 1: *x = face_depth; *y = u; *z = v; break; /* -X */
+        case 2: *x = u; *y = face_depth; *z = v; break; /* +Y */
+        case 3: *x = v; *y = face_depth; *z = u; break; /* -Y */
+        case 4: *x = v; *y = u; *z = face_depth; break; /* +Z */
+        case 5: *x = u; *y = v; *z = face_depth; break; /* -Z */
+    }
+}
+
+ZAI_API void zai_marching_cubes_generate_transition_face(
+    zai_marching_cubes_context *ctx, i32 face_idx, f32 scale, f32 offset,
+    zai_marching_cubes_triangle *out, i32 *count) 
+{
+    (void) ctx;
+    (void) face_idx;
+    (void) scale;
+    (void) offset;
+    (void) out;
+    (void) count;
+}
+
 ZAI_API void zai_marching_cubes_generate(
     zai_marching_cubes_context *ctx,
     zai_marching_cubes_triangle *out_triangles,
@@ -1395,6 +1418,20 @@ ZAI_API void zai_marching_cubes_generate(
                 f32 *d_ptr = &d_ptr_base[x];
                 i32 cube_config = 0;
                 f32 densities[8];
+
+                /* Skip logic for transvoxel transition faces */
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PX) && (x == num_cubes - stride))
+                    continue;
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NX) && (x == 0))
+                    continue;
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PY) && (y == num_cubes - stride))
+                    continue;
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NY) && (y == 0))
+                    continue;
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_PZ) && (z == num_cubes - stride))
+                    continue;
+                if ((ctx->transition_mask & ZAI_MARCHING_CUBES_TRANSITION_MASK_NZ) && (z == 0))
+                    continue;
 
                 for (i = 0; i < 8; ++i)
                 {
@@ -1454,6 +1491,18 @@ ZAI_API void zai_marching_cubes_generate(
 
                     count++;
                 }
+            }
+        }
+    }
+
+    /* Transvoxel transition face generation */
+    if (ctx->transition_mask > 0)
+    {
+        for (i = 0; i < 6; ++i)
+        {
+            if (ctx->transition_mask & (1 << i))
+            {
+                zai_marching_cubes_generate_transition_face(ctx, i, scale, offset, out_triangles, &count);
             }
         }
     }
