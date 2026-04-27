@@ -163,7 +163,7 @@ ZAI_API ZAI_INLINE f32 zai_noise_perlin_3_fbm(f32 x, f32 y, f32 z, f32 frequency
 }
 
 /* #############################################################################
- * # [SECTION] Noise Fast
+ * # [SECTION] Perlin Noise Fast
  * #############################################################################
  */
 #define ZAI_NOISE_FADE(t) (t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f))
@@ -279,6 +279,88 @@ ZAI_API ZAI_INLINE f32 zai_noise_3d_fbm_rotation(f32 x, f32 y, f32 z, f32 freque
         p[1] = tmp[1] * lacunarity;
         p[2] = tmp[2] * lacunarity;
 
+        amp *= gain;
+    }
+
+    return sum / norm;
+}
+
+/* #############################################################################
+ * # [SECTION] Value Noise
+ * #############################################################################
+ */
+ZAI_API ZAI_INLINE u32 zai_value_noise_hash3(u32 x, u32 y, u32 z)
+{
+    u32 h = x * 374761393u + y * 668265263u + z * 2147483647u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return h ^ (h >> 16);
+}
+
+ZAI_API ZAI_INLINE f32 zai_value_noise_hash_to_f32(u32 h)
+{
+    return ((f32)(h & 0xFFFFFF) / 16777215.0f) * 2.0f - 1.0f;
+}
+
+ZAI_API ZAI_INLINE f32 zai_noise_smooth(f32 t)
+{
+    return t * t * (3.0f - 2.0f * t);
+}
+
+ZAI_API ZAI_INLINE f32 zai_noise_lerp(f32 a, f32 b, f32 t)
+{
+    return a + t * (b - a);
+}
+
+ZAI_API ZAI_INLINE f32 zai_value_noise_3d(f32 x, f32 y, f32 z)
+{
+    i32 xi = zai_noise_floorf(x);
+    i32 yi = zai_noise_floorf(y);
+    i32 zi = zai_noise_floorf(z);
+
+    f32 xf = x - (f32)xi;
+    f32 yf = y - (f32)yi;
+    f32 zf = z - (f32)zi;
+
+    f32 u = zai_noise_smooth(xf);
+    f32 v = zai_noise_smooth(yf);
+    f32 w = zai_noise_smooth(zf);
+
+    /* Hash corners */
+    u32 X = (u32)xi;
+    u32 Y = (u32)yi;
+    u32 Z = (u32)zi;
+
+    f32 c000 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X, Y, Z));
+    f32 c100 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X + 1, Y, Z));
+    f32 c010 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X, Y + 1, Z));
+    f32 c110 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X + 1, Y + 1, Z));
+    f32 c001 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X, Y, Z + 1));
+    f32 c101 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X + 1, Y, Z + 1));
+    f32 c011 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X, Y + 1, Z + 1));
+    f32 c111 = zai_value_noise_hash_to_f32(zai_value_noise_hash3(X + 1, Y + 1, Z + 1));
+
+    /* Trilinear interpolation */
+    f32 x00 = zai_noise_lerp(c000, c100, u);
+    f32 x10 = zai_noise_lerp(c010, c110, u);
+    f32 x01 = zai_noise_lerp(c001, c101, u);
+    f32 x11 = zai_noise_lerp(c011, c111, u);
+
+    f32 y0 = zai_noise_lerp(x00, x10, v);
+    f32 y1 = zai_noise_lerp(x01, x11, v);
+
+    return zai_noise_lerp(y0, y1, w);
+}
+
+ZAI_API ZAI_INLINE f32 zai_value_noise_3d_fbm(f32 x, f32 y, f32 z, f32 frequency, i32 octaves, f32 lacunarity, f32 gain)
+{
+    i32 i;
+    f32 sum = 0, amp = 1, f = frequency, norm = 0;
+
+    for (i = 0; i < octaves; ++i)
+    {
+        sum += amp * zai_value_noise_3d(x * f, y * f, z * f);
+        norm += amp;
+        f *= lacunarity;
         amp *= gain;
     }
 
