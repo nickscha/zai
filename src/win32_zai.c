@@ -2210,7 +2210,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
     ctx.density_grid = density_grid;
-    ctx.transition_mask = 0;
+    ctx.transition_mask = ZAI_MARCHING_CUBES_TRANSITION_MASK_NZ;
     ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
@@ -2238,7 +2238,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx_1.chunk_coord.y = 0.0f;
     ctx_1.chunk_coord.z = -100.0f;
     ctx_1.density_grid = density_grid;
-    ctx_1.transition_mask = ZAI_MARCHING_CUBES_TRANSITION_MASK_PZ;
+    ctx_1.transition_mask = 0;
     ctx_1.lod_level = 1;
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
