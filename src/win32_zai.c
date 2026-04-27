@@ -15,6 +15,7 @@ LICENSE
 #include "zai_profiler.h"
 #include "zai_marching_cubes.h"
 #include "zai_dual_contouring.h"
+#include "zai_surface_nets.h"
 #include "zai_noise.h"
 #include "zai_opengl.h"
 #include "zai_sdf_scene.h"
@@ -2203,6 +2204,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     triangle_buffer = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     triangle_buffer_1 = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
+    /* LOD 0 */
     ctx.dim_size = DIM;
     ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
@@ -2231,6 +2233,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
 
+    /* LOD 1 */
     ctx_1.dim_size = DIM;
     ctx_1.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx_1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
