@@ -303,7 +303,7 @@ ZAI_API ZAI_INLINE f32 zai_value_noise_hash_to_f32(u32 h)
 
 ZAI_API ZAI_INLINE f32 zai_noise_smooth(f32 t)
 {
-    return t * t * (3.0f - 2.0f * t);
+    return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
 
 ZAI_API ZAI_INLINE f32 zai_noise_lerp(f32 a, f32 b, f32 t)
@@ -361,6 +361,36 @@ ZAI_API ZAI_INLINE f32 zai_value_noise_3d_fbm(f32 x, f32 y, f32 z, f32 frequency
         sum += amp * zai_value_noise_3d(x * f, y * f, z * f);
         norm += amp;
         f *= lacunarity;
+        amp *= gain;
+    }
+
+    return sum / norm;
+}
+
+ZAI_API ZAI_INLINE f32 zai_value_noise_3d_fbm_rotation(f32 x, f32 y, f32 z, f32 frequency, i32 octaves, f32 lacunarity, f32 gain, f32 rotation[3][3])
+{
+    i32 i;
+    f32 sum = 0.0f, amp = 1.0f, norm = 0.0f;
+    f32 p[3];
+
+    p[0] = x * frequency;
+    p[1] = y * frequency;
+    p[2] = z * frequency;
+
+    for (i = 0; i < octaves; ++i)
+    {
+        f32 tmp[3];
+
+        /* sample noise */
+        sum += amp * zai_value_noise_3d(p[0], p[1], p[2]);
+        norm += amp;
+
+        /* rotate then scale */
+        zai_noise_m3x3_mul(rotation, p, tmp);
+        p[0] = tmp[0] * lacunarity;
+        p[1] = tmp[1] * lacunarity;
+        p[2] = tmp[2] * lacunarity;
+
         amp *= gain;
     }
 

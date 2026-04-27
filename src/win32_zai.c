@@ -2120,7 +2120,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
         /* f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
         /* f32 noise_val = zai_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain, seed); */
         /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
-        f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain);
+        /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
+        f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
         f32 offset = -wy * 0.6f;
         f32 final_density = (noise_val * amplitude) + offset;
 
