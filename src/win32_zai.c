@@ -2123,8 +2123,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
         /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
         /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
-        f32 offset = wy > 0.0f ?  -wy * 0.6f : 0.0f;
-        f32 final_density = (noise_val * amplitude) + offset; 
+        f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
+        f32 final_density = (noise_val * amplitude) + offset;
 
         /*
         f32 density = zai_sinf(wx * scale) +
@@ -2401,7 +2401,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
   /* Large scratch buffers for mesh data */
   static zai_surface_nets_vertex temp_verts[100000 * 10];
-  static u32 temp_indices[300000* 10];
+  static u32 temp_indices[300000 * 10];
 
   (void)state;
 
