@@ -24,8 +24,6 @@ typedef struct zai_surface_nets_context
     zai_vec3 chunk_coord; /* World offset */
 } zai_surface_nets_context;
 
-#define ZAI_SURFACE_NETS_INDEX(ctx, x, y, z) ((z) * (ctx)->dim_size * (ctx)->dim_size + (y) * (ctx)->dim_size + (x))
-
 ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     zai_surface_nets_context *ctx,
     zai_surface_nets_vertex *out_vertices,
@@ -42,7 +40,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     f32 offset = ctx->grid_size * 0.5f;
     f32 iso = ctx->iso_level;
 
-    static const i32 edge_map[12][2] = {{0, 1}, {1, 3}, {3, 2}, {2, 0}, {4, 5}, {5, 7}, {7, 6}, {6, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    static i32 edge_map[12][2] = {{0, 1}, {1, 3}, {3, 2}, {2, 0}, {4, 5}, {5, 7}, {7, 6}, {6, 4}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
 
     /* Pass 1: Generate Vertices */
     for (z = 0; z < dim - 1; ++z)
@@ -120,6 +118,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     out_vertices[v_count].position.y = local_p.y * scale - offset + ctx->chunk_coord.y;
                     out_vertices[v_count].position.z = local_p.z * scale - offset + ctx->chunk_coord.z;
 
+                    /* Central Difference Gradient for Normals */
                     n.x = (d[0] + d[2] + d[4] + d[6]) - (d[1] + d[3] + d[5] + d[7]);
                     n.y = (d[0] + d[1] + d[4] + d[5]) - (d[2] + d[3] + d[6] + d[7]);
                     n.z = (d[0] + d[1] + d[2] + d[3]) - (d[4] + d[5] + d[6] + d[7]);
@@ -129,6 +128,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     if (mag_sq > 1e-6f)
                     {
                         f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
+
                         out_vertices[v_count].normal.x = n.x * inv_mag;
                         out_vertices[v_count].normal.y = n.y * inv_mag;
                         out_vertices[v_count].normal.z = n.z * inv_mag;
