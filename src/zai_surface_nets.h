@@ -150,32 +150,32 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 if (x < dim - 1)
                 {
                     f32 dx = ctx->density_grid[ZAI_SURFACE_NETS_INDEX(ctx, x + 1, y, z)];
-
                     if ((d < ctx->iso_level) != (dx < ctx->iso_level))
                     {
                         i32 v0 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y, z)];
                         i32 v1 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y - 1, z)];
                         i32 v2 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y - 1, z - 1)];
                         i32 v3 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y, z - 1)];
+
                         if (v0 != -1 && v1 != -1 && v2 != -1 && v3 != -1)
                         {
-                            if (d < ctx->iso_level)
+                            if (d < ctx->iso_level) /* Inside to Outside */
                             {
                                 out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
                             }
-                            else
+                            else /* Outside to Inside */
                             {
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v3;
                                 out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
                             }
                         }
                     }
@@ -185,7 +185,6 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 if (y < dim - 1)
                 {
                     f32 dy = ctx->density_grid[ZAI_SURFACE_NETS_INDEX(ctx, x, y + 1, z)];
-
                     if ((d < ctx->iso_level) != (dy < ctx->iso_level))
                     {
                         i32 v0 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y, z)];
@@ -198,20 +197,20 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                             if (d < ctx->iso_level)
                             {
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v3;
                                 out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
                             }
                             else
                             {
                                 out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
                             }
                         }
                     }
@@ -221,7 +220,6 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 if (z < dim - 1)
                 {
                     f32 dz = ctx->density_grid[ZAI_SURFACE_NETS_INDEX(ctx, x, y, z + 1)];
-
                     if ((d < ctx->iso_level) != (dz < ctx->iso_level))
                     {
                         i32 v0 = ctx->buffer_indices[ZAI_SURFACE_NETS_INDEX(ctx, x, y, z)];
@@ -234,20 +232,20 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                             if (d < ctx->iso_level)
                             {
                                 out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
                             }
                             else
                             {
                                 out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v2;
                                 out_indices[idx_count++] = (u32)v1;
-                                out_indices[idx_count++] = (u32)v0;
-                                out_indices[idx_count++] = (u32)v3;
                                 out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
                             }
                         }
                     }

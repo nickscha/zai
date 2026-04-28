@@ -2546,9 +2546,9 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
       glEnable(GL_DEPTH_TEST);
       /*
+       */
        glEnable(GL_CULL_FACE);
        glCullFace(GL_BACK);
-       */
 
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
@@ -2561,8 +2561,8 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       glDisable(GL_DEPTH_TEST);
 
       /*
-      glDisable(GL_CULL_FACE);
       */
+      glDisable(GL_CULL_FACE);
     }
   }
   ZAI_PROFILER_END(render_surface_nets);
