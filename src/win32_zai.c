@@ -2123,8 +2123,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
         /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
         /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
-        f32 offset = -wy * 0.6f;
-        f32 final_density = (noise_val * amplitude) + offset;
+        f32 offset = wy > 0.0f ?  -wy * 0.6f : 0.0f;
+        f32 final_density = (noise_val * amplitude) + offset; 
 
         /*
         f32 density = zai_sinf(wx * scale) +
@@ -2134,6 +2134,17 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
         density += zai_sinf(wx * scale * 2.1f) * 0.5f;
         density += zai_sinf(wy * scale * 2.1f) * 0.5f;
         density += zai_sinf(wz * scale * 2.1f) * 0.5f;
+        */
+
+        /*
+        if (x == 0 || x == dim - 1 || y == 0 || y == dim - 1 || z == 0 || z == dim - 1)
+        {
+          final_density = 1.0f;
+        }
+        else
+        {
+          final_density = (noise_val * amplitude);
+        }
         */
 
         grid[z * dim * dim + y * dim + x] = final_density;
@@ -2389,8 +2400,8 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
   static i32 cell_indices[DIM * DIM * DIM]; /* Required for vertex lookup */
 
   /* Large scratch buffers for mesh data */
-  static zai_surface_nets_vertex temp_verts[100000];
-  static u32 temp_indices[300000];
+  static zai_surface_nets_vertex temp_verts[100000 * 10];
+  static u32 temp_indices[300000* 10];
 
   (void)state;
 
@@ -2546,9 +2557,9 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
       glEnable(GL_DEPTH_TEST);
       /*
+      glEnable(GL_CULL_FACE);
+      glCullFace(GL_BACK);
        */
-       glEnable(GL_CULL_FACE);
-       glCullFace(GL_BACK);
 
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
@@ -2561,8 +2572,8 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       glDisable(GL_DEPTH_TEST);
 
       /*
-      */
       glDisable(GL_CULL_FACE);
+       */
     }
   }
   ZAI_PROFILER_END(render_surface_nets);
