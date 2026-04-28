@@ -175,7 +175,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     v2 = ctx->buffer_indices[curr - dim - dim2];
                     v3 = ctx->buffer_indices[curr - dim2];
 
-                    if (v0 != -1 && v1 != -1 && v2 != -1 && v3 != -1)
+                    if ((v0 | v1 | v2 | v3) >= 0)
                     {
                         if (d < iso)
                         {
@@ -206,7 +206,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     v2 = ctx->buffer_indices[curr - 1 - dim2];
                     v3 = ctx->buffer_indices[curr - dim2];
 
-                    if (v0 != -1 && v1 != -1 && v2 != -1 && v3 != -1)
+                    if ((v0 | v1 | v2 | v3) >= 0)
                     {
                         if (d < iso)
                         {
@@ -237,7 +237,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     v2 = ctx->buffer_indices[curr - 1 - dim];
                     v3 = ctx->buffer_indices[curr - dim];
 
-                    if (v0 != -1 && v1 != -1 && v2 != -1 && v3 != -1)
+                    if ((v0 | v1 | v2 | v3) >= 0)
                     {
                         if (d < iso)
                         {
