@@ -118,6 +118,11 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     zai_vec3 n;
                     f32 mag_sq;
 
+                    f32 sum_lo;
+                    f32 sum_hi;
+                    f32 sum_x0;
+                    f32 sum_y0;
+
                     local_p.x = avg_pos.x * inv_int;
                     local_p.y = avg_pos.y * inv_int;
                     local_p.z = avg_pos.z * inv_int;
@@ -127,9 +132,14 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     out_vertices[v_count].position.z = local_p.z * scale - offset + ctx->chunk_coord.z;
 
                     /* Central Difference Gradient for Normals */
-                    n.x = (d[0] + d[2] + d[4] + d[6]) - (d[1] + d[3] + d[5] + d[7]);
-                    n.y = (d[0] + d[1] + d[4] + d[5]) - (d[2] + d[3] + d[6] + d[7]);
-                    n.z = (d[0] + d[1] + d[2] + d[3]) - (d[4] + d[5] + d[6] + d[7]);
+                    sum_lo = d[0] + d[1] + d[2] + d[3]; /* z=0 face */
+                    sum_hi = d[4] + d[5] + d[6] + d[7]; /* z=1 face */
+                    sum_x0 = d[0] + d[2] + d[4] + d[6]; /* x=0 face */
+                    sum_y0 = d[0] + d[1] + d[4] + d[5]; /* y=0 face */
+
+                    n.z = sum_lo - sum_hi;
+                    n.y = sum_y0 - ((sum_lo + sum_hi) - sum_y0);
+                    n.x = sum_x0 - ((sum_lo + sum_hi) - sum_x0);
 
                     mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
 
