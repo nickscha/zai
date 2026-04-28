@@ -135,7 +135,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                     if (mag_sq > 1e-6f)
                     {
-                        f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
+                        f32 inv_mag = zai_invsqrtf(mag_sq);
 
                         out_vertices[v_count].normal.x = n.x * inv_mag;
                         out_vertices[v_count].normal.y = n.y * inv_mag;
