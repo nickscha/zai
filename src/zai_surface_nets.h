@@ -93,7 +93,15 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                     if (((mask >> i1) & 1) != ((mask >> i2) & 1))
                     {
-                        f32 t = (iso - d[i1]) / (d[i2] - d[i1]);
+                        f32 t;
+                        f32 denom = d[i2] - d[i1];
+
+                        if (zai_absf(denom) < 1e-6f)
+                        {
+                            continue;
+                        }
+
+                        t = (iso - d[i1]) / denom;
 
                         avg_pos.x += (f32)x + (f32)((i1 >> 0) & 1) + t * (f32)(((i2 >> 0) & 1) - ((i1 >> 0) & 1));
                         avg_pos.y += (f32)y + (f32)((i1 >> 1) & 1) + t * (f32)(((i2 >> 1) & 1) - ((i1 >> 1) & 1));
