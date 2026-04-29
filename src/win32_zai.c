@@ -2450,6 +2450,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx.chunk_coord.z = 0.0f;
     ctx.density_grid = density_grid;
     ctx.buffer_indices = cell_indices;
+    ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);

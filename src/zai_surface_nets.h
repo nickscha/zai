@@ -22,7 +22,19 @@ typedef struct zai_surface_nets_context
     f32 grid_size;        /* World space size */
     f32 iso_level;        /* Surface threshold */
     zai_vec3 chunk_coord; /* World offset */
+
+    i32 lod_level;      /* 0 = stride 1, 1 = stride 2, 2 = stride 4 */
+    u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
+
 } zai_surface_nets_context;
+
+/* Transition Mask Bit Definitions (consistent with the logic below) */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PX (1 << 0) /* +X */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NX (1 << 1) /* -X */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PY (1 << 2) /* +Y */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NY (1 << 3) /* -Y */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PZ (1 << 4) /* +Z */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NZ (1 << 5) /* -Z */
 
 typedef struct zai_surface_nets_edge
 {
@@ -329,47 +341,59 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 idx_count = 0;
     i32 dim = ctx->dim_size;
     i32 dim2 = dim * dim;
+
+    /* Calculate LOD stride: 1, 2, 4, 8... */
+    i32 stride = (1 << ctx->lod_level);
+
     f32 scale = ctx->grid_size / (f32)(dim - 1);
     f32 offset = ctx->grid_size * 0.5f;
     f32 iso = ctx->iso_level;
 
+    /* Strided offsets for indexing */
+    i32 s_x = stride;
+    i32 s_y = stride * dim;
+    i32 s_z = stride * dim2;
+
+    /* Initialize index buffer */
     for (i = 0; i < dim * dim2; i++)
     {
         ctx->buffer_indices[i] = -1;
     }
 
-    for (z = 1; z < dim - 1; ++z)
+    /* Outer loops step by stride */
+    for (z = stride; z < dim - stride; z += stride)
     {
-        for (y = 1; y < dim - 1; ++y)
+        for (y = stride; y < dim - stride; y += stride)
         {
             i32 row_idx = (z * dim2) + (y * dim);
             f32 d_cache[4];
-            d_cache[0] = ctx->density_grid[row_idx];
-            d_cache[1] = ctx->density_grid[row_idx + dim];
-            d_cache[2] = ctx->density_grid[row_idx + dim2];
-            d_cache[3] = ctx->density_grid[row_idx + dim2 + dim];
 
-            for (x = 1; x < dim - 1; ++x)
+            /* Initialize Cache for the start of the X row */
+            d_cache[0] = ctx->density_grid[row_idx];
+            d_cache[1] = ctx->density_grid[row_idx + s_y];
+            d_cache[2] = ctx->density_grid[row_idx + s_z];
+            d_cache[3] = ctx->density_grid[row_idx + s_z + s_y];
+
+            for (x = stride; x < dim - stride; x += stride)
             {
                 i32 curr = row_idx + x;
                 i32 mask = 0;
                 f32 d[8];
-
                 i32 intersections = 0;
                 zai_vec3 avg_pos;
                 zai_surface_nets_case *c;
 
-                /* Slide cache: left face comes from previous iteration */
+                /* Slide cache: left face */
                 d[0] = d_cache[0];
                 d[2] = d_cache[1];
                 d[4] = d_cache[2];
                 d[6] = d_cache[3];
 
-                /* Load new right face (4 reads instead of 8) */
-                d_cache[0] = ctx->density_grid[curr + 1];
-                d_cache[1] = ctx->density_grid[curr + 1 + dim];
-                d_cache[2] = ctx->density_grid[curr + 1 + dim2];
-                d_cache[3] = ctx->density_grid[curr + 1 + dim2 + dim];
+                /* Load new right face at current + stride */
+                d_cache[0] = ctx->density_grid[curr + s_x];
+                d_cache[1] = ctx->density_grid[curr + s_x + s_y];
+                d_cache[2] = ctx->density_grid[curr + s_x + s_z];
+                d_cache[3] = ctx->density_grid[curr + s_x + s_z + s_y];
 
                 d[1] = d_cache[0];
                 d[3] = d_cache[1];
@@ -377,7 +401,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 d[7] = d_cache[3];
 
                 mask =
-                    ((d[0] < iso)) |
+                    ((d[0] < iso) << 0) |
                     ((d[1] < iso) << 1) |
                     ((d[2] < iso) << 2) |
                     ((d[3] < iso) << 3) |
@@ -389,94 +413,88 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 if (mask == 0 || mask == 255)
                 {
                     ctx->buffer_indices[curr] = -1;
-                    continue;
-                }
-
-                /* Vertex generation */
-                avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
-
-                c = &zai_surface_nets_lut[mask];
-
-                for (i = 0; i < c->edge_count; i++)
-                {
-                    i32 i1 = c->edges[i].a;
-                    i32 i2 = c->edges[i].b;
-
-                    if (((mask >> i1) & 1) != ((mask >> i2) & 1))
-                    {
-                        f32 denom = d[i2] - d[i1];
-                        f32 t;
-
-                        if (zai_absf(denom) < 1e-6f)
-                        {
-                            continue;
-                        }
-
-                        t = (iso - d[i1]) / denom;
-
-                        avg_pos.x += (f32)x + (f32)((i1 >> 0) & 1) + t * (f32)(((i2 >> 0) & 1) - ((i1 >> 0) & 1));
-                        avg_pos.y += (f32)y + (f32)((i1 >> 1) & 1) + t * (f32)(((i2 >> 1) & 1) - ((i1 >> 1) & 1));
-                        avg_pos.z += (f32)z + (f32)((i1 >> 2) & 1) + t * (f32)(((i2 >> 2) & 1) - ((i1 >> 2) & 1));
-
-                        intersections++;
-                    }
-                }
-
-                if (intersections > 0)
-                {
-                    f32 inv = 1.0f / (f32)intersections;
-                    f32 sum_lo, sum_hi, sum_x0, sum_y0, total;
-                    zai_vec3 n;
-                    f32 mag_sq;
-
-                    out_vertices[v_count].position.x = avg_pos.x * inv * scale - offset + ctx->chunk_coord.x;
-                    out_vertices[v_count].position.y = avg_pos.y * inv * scale - offset + ctx->chunk_coord.y;
-                    out_vertices[v_count].position.z = avg_pos.z * inv * scale - offset + ctx->chunk_coord.z;
-
-                    /* Normal via reused partial sums */
-                    sum_lo = d[0] + d[1] + d[2] + d[3];
-                    sum_hi = d[4] + d[5] + d[6] + d[7];
-                    sum_x0 = d[0] + d[2] + d[4] + d[6];
-                    sum_y0 = d[0] + d[1] + d[4] + d[5];
-                    total = sum_lo + sum_hi;
-
-                    n.x = sum_x0 - (total - sum_x0);
-                    n.y = sum_y0 - (total - sum_y0);
-                    n.z = sum_lo - sum_hi;
-
-                    mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
-                    if (mag_sq > 1e-6f)
-                    {
-                        f32 inv_mag = zai_invsqrtf(mag_sq);
-                        out_vertices[v_count].normal.x = n.x * inv_mag;
-                        out_vertices[v_count].normal.y = n.y * inv_mag;
-                        out_vertices[v_count].normal.z = n.z * inv_mag;
-                    }
-                    else
-                    {
-                        out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
-                    }
-
-                    ctx->buffer_indices[curr] = v_count;
-                    v_count++;
                 }
                 else
                 {
-                    ctx->buffer_indices[curr] = -1;
+                    /* Vertex generation */
+                    avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
+                    c = &zai_surface_nets_lut[mask];
+
+                    for (i = 0; i < c->edge_count; i++)
+                    {
+                        i32 i1 = c->edges[i].a;
+                        i32 i2 = c->edges[i].b;
+
+                        if (((mask >> i1) & 1) != ((mask >> i2) & 1))
+                        {
+                            f32 denom = d[i2] - d[i1];
+                            if (zai_absf(denom) > 1e-6f)
+                            {
+                                f32 t = (iso - d[i1]) / denom;
+                                /* Multiply unit offsets by stride */
+                                avg_pos.x += (f32)x + (f32)stride * ((f32)((i1 >> 0) & 1) + t * (f32)(((i2 >> 0) & 1) - ((i1 >> 0) & 1)));
+                                avg_pos.y += (f32)y + (f32)stride * ((f32)((i1 >> 1) & 1) + t * (f32)(((i2 >> 1) & 1) - ((i1 >> 1) & 1)));
+                                avg_pos.z += (f32)z + (f32)stride * ((f32)((i1 >> 2) & 1) + t * (f32)(((i2 >> 2) & 1) - ((i1 >> 2) & 1)));
+                                intersections++;
+                            }
+                        }
+                    }
+
+                    if (intersections > 0)
+                    {
+                        f32 inv = 1.0f / (f32)intersections;
+                        f32 sum_lo, sum_hi, sum_x0, sum_y0, total;
+                        zai_vec3 n;
+                        f32 mag_sq;
+
+                        out_vertices[v_count].position.x = avg_pos.x * inv * scale - offset + ctx->chunk_coord.x;
+                        out_vertices[v_count].position.y = avg_pos.y * inv * scale - offset + ctx->chunk_coord.y;
+                        out_vertices[v_count].position.z = avg_pos.z * inv * scale - offset + ctx->chunk_coord.z;
+
+                        sum_lo = d[0] + d[1] + d[2] + d[3];
+                        sum_hi = d[4] + d[5] + d[6] + d[7];
+                        sum_x0 = d[0] + d[2] + d[4] + d[6];
+                        sum_y0 = d[0] + d[1] + d[4] + d[5];
+                        total = sum_lo + sum_hi;
+
+                        n.x = sum_x0 - (total - sum_x0);
+                        n.y = sum_y0 - (total - sum_y0);
+                        n.z = sum_lo - sum_hi;
+
+                        mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
+                        if (mag_sq > 1e-6f)
+                        {
+                            f32 inv_mag = zai_invsqrtf(mag_sq);
+                            out_vertices[v_count].normal.x = n.x * inv_mag;
+                            out_vertices[v_count].normal.y = n.y * inv_mag;
+                            out_vertices[v_count].normal.z = n.z * inv_mag;
+                        }
+                        else
+                        {
+                            out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
+                        }
+
+                        ctx->buffer_indices[curr] = v_count;
+                        v_count++;
+                    }
+                    else
+                    {
+                        ctx->buffer_indices[curr] = -1;
+                    }
                 }
 
-                /* Indices generation */
+                /* Strided Indices Generation */
                 {
-                    i32 d_below = (ctx->density_grid[curr] < iso);
+                    i32 d_below = (d[0] < iso); /* current index is d[0] */
                     i32 v0, v1, v2, v3;
 
-                    /* X-axis edge: curr <-> curr+1 */
-                    if (d_below != (ctx->density_grid[curr + 1] < iso))
+                    /* X-axis edge */
+                    if (d_below != (d[1] < iso))
                     {
                         v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - dim];
-                        v2 = ctx->buffer_indices[curr - dim - dim2];
-                        v3 = ctx->buffer_indices[curr - dim2];
+                        v1 = ctx->buffer_indices[curr - s_y];
+                        v2 = ctx->buffer_indices[curr - s_y - s_z];
+                        v3 = ctx->buffer_indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
@@ -501,13 +519,13 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                         }
                     }
 
-                    /* Y-axis edge: curr <-> curr+dim */
-                    if (d_below != (ctx->density_grid[curr + dim] < iso))
+                    /* Y-axis edge */
+                    if (d_below != (d[2] < iso))
                     {
                         v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - 1];
-                        v2 = ctx->buffer_indices[curr - 1 - dim2];
-                        v3 = ctx->buffer_indices[curr - dim2];
+                        v1 = ctx->buffer_indices[curr - s_x];
+                        v2 = ctx->buffer_indices[curr - s_x - s_z];
+                        v3 = ctx->buffer_indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
@@ -532,13 +550,13 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                         }
                     }
 
-                    /* Z-axis edge: curr <-> curr+dim2 */
-                    if (d_below != (ctx->density_grid[curr + dim2] < iso))
+                    /* Z-axis edge */
+                    if (d_below != (d[4] < iso))
                     {
                         v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - 1];
-                        v2 = ctx->buffer_indices[curr - 1 - dim];
-                        v3 = ctx->buffer_indices[curr - dim];
+                        v1 = ctx->buffer_indices[curr - s_x];
+                        v2 = ctx->buffer_indices[curr - s_x - s_y];
+                        v3 = ctx->buffer_indices[curr - s_y];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
