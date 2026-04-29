@@ -342,19 +342,15 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 dim = ctx->dim_size;
     i32 dim2 = dim * dim;
 
-    /* Calculate LOD stride: 1, 2, 4, 8... */
-    i32 stride = (1 << ctx->lod_level);
-
     f32 scale = ctx->grid_size / (f32)(dim - 1);
     f32 offset = ctx->grid_size * 0.5f;
     f32 iso = ctx->iso_level;
 
-    /* Strided offsets for indexing */
+    i32 stride = (1 << ctx->lod_level);
     i32 s_x = stride;
     i32 s_y = stride * dim;
     i32 s_z = stride * dim2;
 
-    /* Initialize index buffer */
     for (i = 0; i < dim * dim2; i++)
     {
         ctx->buffer_indices[i] = -1;
@@ -431,10 +427,11 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                             if (zai_absf(denom) > 1e-6f)
                             {
                                 f32 t = (iso - d[i1]) / denom;
-                                /* Multiply unit offsets by stride */
+
                                 avg_pos.x += (f32)x + (f32)stride * ((f32)((i1 >> 0) & 1) + t * (f32)(((i2 >> 0) & 1) - ((i1 >> 0) & 1)));
                                 avg_pos.y += (f32)y + (f32)stride * ((f32)((i1 >> 1) & 1) + t * (f32)(((i2 >> 1) & 1) - ((i1 >> 1) & 1)));
                                 avg_pos.z += (f32)z + (f32)stride * ((f32)((i1 >> 2) & 1) + t * (f32)(((i2 >> 2) & 1) - ((i1 >> 2) & 1)));
+
                                 intersections++;
                             }
                         }
@@ -462,9 +459,11 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                         n.z = sum_lo - sum_hi;
 
                         mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
+
                         if (mag_sq > 1e-6f)
                         {
                             f32 inv_mag = zai_invsqrtf(mag_sq);
+
                             out_vertices[v_count].normal.x = n.x * inv_mag;
                             out_vertices[v_count].normal.y = n.y * inv_mag;
                             out_vertices[v_count].normal.z = n.z * inv_mag;
