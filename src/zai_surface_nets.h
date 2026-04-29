@@ -428,33 +428,30 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
                 c = &zai_surface_nets_lut[mask];
 
-                for (i = 0; i < c->edge_count; i++)
+                for (i = 0; i < c->edge_count; ++i)
                 {
                     i32 i1 = c->edges[i].a;
                     i32 i2 = c->edges[i].b;
 
-                    if (((mask >> i1) & 1) != ((mask >> i2) & 1))
+                    f32 denom = d[i2] - d[i1];
+
+                    if (denom > 1e-6f || denom < -1e-6f)
                     {
-                        f32 denom = d[i2] - d[i1];
+                        f32 t = (iso - d[i1]) / denom;
 
-                        if (denom > 1e-6f || denom < -1e-6f)
-                        {
-                            f32 t = (iso - d[i1]) / denom;
+                        f32 x1 = (f32)corner_x[i1];
+                        f32 y1 = (f32)corner_y[i1];
+                        f32 z1 = (f32)corner_z[i1];
 
-                            f32 x1 = (f32)corner_x[i1];
-                            f32 y1 = (f32)corner_y[i1];
-                            f32 z1 = (f32)corner_z[i1];
+                        f32 x2 = (f32)corner_x[i2];
+                        f32 y2 = (f32)corner_y[i2];
+                        f32 z2 = (f32)corner_z[i2];
 
-                            f32 x2 = (f32)corner_x[i2];
-                            f32 y2 = (f32)corner_y[i2];
-                            f32 z2 = (f32)corner_z[i2];
+                        avg_pos.x += (f32)x + (f32)stride * (x1 + t * (x2 - x1));
+                        avg_pos.y += (f32)y + (f32)stride * (y1 + t * (y2 - y1));
+                        avg_pos.z += (f32)z + (f32)stride * (z1 + t * (z2 - z1));
 
-                            avg_pos.x += (f32)x + (f32)stride * (x1 + t * (x2 - x1));
-                            avg_pos.y += (f32)y + (f32)stride * (y1 + t * (y2 - y1));
-                            avg_pos.z += (f32)z + (f32)stride * (z1 + t * (z2 - z1));
-
-                            intersections++;
-                        }
+                        intersections++;
                     }
                 }
 
