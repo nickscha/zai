@@ -901,6 +901,7 @@ typedef struct shader_marching_cubes
 {
   shader_header header;
 
+  i32 loc_iResolution;
   i32 loc_mvp;
 
 } shader_marching_cubes;
@@ -2358,15 +2359,15 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ZAI_PROFILER_BEGIN(setup_surface_nets);
 
     camera = zai_camera_init();
-    camera.position.y = 10.0f;
-    camera.position.z = 85.0f;
+    camera.position.y = 20.0f;
+    camera.position.z = 80.0f;
 
     /* Shader Setup */
     {
       u32 size_code_vertex = 0;
       u32 size_code_fragment = 0;
-      u8 *shader_code_vertex = win32_file_read("zai_marching_cubes.vs", &size_code_vertex);
-      u8 *shader_code_fragment = win32_file_read("zai_marching_cubes.fs", &size_code_fragment);
+      u8 *shader_code_vertex = win32_file_read("zai_surface_nets.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_surface_nets.fs", &size_code_fragment);
 
       if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
       {
@@ -2376,6 +2377,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
       if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
       {
+        marching_cubes_shader.loc_iResolution = glGetUniformLocation(marching_cubes_shader.header.program, "iResolution");
         marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
 
         if (marching_cubes_shader.loc_mvp < 0)
@@ -2444,7 +2446,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    zai_update_camera_movement(state, &camera, 200.0f);
+    zai_update_camera_movement(state, &camera, 100.0f);
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
@@ -2459,6 +2461,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
+      glUniform3f(marching_cubes_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
 
       glBindVertexArray(vao);
