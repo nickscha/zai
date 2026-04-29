@@ -2334,23 +2334,30 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
   static shader_marching_cubes marching_cubes_shader = {0};
 
-  static u32 vao;
-  static u32 vbo;
-  static u32 ebo;
-
-  static i32 vertex_count = 0;
-  static i32 index_count = 0;
-
   static zai_camera camera = {0};
 
-  static zai_surface_nets_context ctx = {0};
+  static zai_surface_nets_context ctx_lod0 = {0};
+  static zai_surface_nets_context ctx_lod1 = {0};
 
   static f32 density_grid[DIM * DIM * DIM];
   static i32 cell_indices[DIM * DIM * DIM]; /* Required for vertex lookup */
 
   /* Large scratch buffers for mesh data */
-  static zai_surface_nets_vertex temp_verts[100000 * 10];
-  static u32 temp_indices[300000 * 10];
+  static zai_surface_nets_vertex *temp_verts;
+  static u32 *temp_indices;
+  static i32 vertex_count = 0;
+  static i32 index_count = 0;
+  static u32 vao;
+  static u32 vbo;
+  static u32 ebo;
+
+  static zai_surface_nets_vertex *temp_verts_1;
+  static u32 *temp_indices_1;
+  static i32 vertex_count_1 = 0;
+  static i32 index_count_1 = 0;
+  static u32 vao_1;
+  static u32 vbo_1;
+  static u32 ebo_1;
 
   (void)state;
 
@@ -2361,6 +2368,11 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     camera = zai_camera_init();
     camera.position.y = 20.0f;
     camera.position.z = 80.0f;
+
+    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     /* Shader Setup */
     {
@@ -2392,24 +2404,44 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     }
 
     /* LOD 0 */
-    ctx.dim_size = DIM;
-    ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
-    ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
-    ctx.chunk_coord.x = 0.0f;
-    ctx.chunk_coord.y = 0.0f;
-    ctx.chunk_coord.z = 0.0f;
-    ctx.density_grid = density_grid;
-    ctx.buffer_indices = cell_indices;
-    ctx.lod_level = 0;
+    ctx_lod0.dim_size = DIM;
+    ctx_lod0.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx_lod0.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx_lod0.chunk_coord.x = 0.0f;
+    ctx_lod0.chunk_coord.y = 0.0f;
+    ctx_lod0.chunk_coord.z = 0.0f;
+    ctx_lod0.density_grid = density_grid;
+    ctx_lod0.buffer_indices = cell_indices;
+    ctx_lod0.lod_level = 0;
+    ctx_lod1.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ;
+
+    /* LOD 1 */
+    ctx_lod1.dim_size = DIM;
+    ctx_lod1.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx_lod1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx_lod1.chunk_coord.x = 0.0f;
+    ctx_lod1.chunk_coord.y = 0.0f;
+    ctx_lod1.chunk_coord.z = -100.0f;
+    ctx_lod1.density_grid = density_grid;
+    ctx_lod1.buffer_indices = cell_indices;
+    ctx_lod1.lod_level = 1;
+    ctx_lod1.transition_mask = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
-    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
+    initialize_density_grid(density_grid, DIM, ctx_lod0.grid_size, ctx_lod0.chunk_coord);
     ZAI_PROFILER_END(setup_density_grid);
 
-    /* Surface Nets Generation Call */
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
-    zai_surface_nets_generate(&ctx, temp_verts, &vertex_count, temp_indices, &index_count);
+    zai_surface_nets_generate(&ctx_lod0, temp_verts, &vertex_count, temp_indices, &index_count);
     ZAI_PROFILER_END(setup_surface_nets_mesh);
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_size, ctx_lod1.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
+    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
+    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao);
@@ -2423,6 +2455,26 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * (i32)sizeof(u32), temp_indices, GL_STATIC_DRAW);
+
+    /* Position: Attribute 0 */
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)0);
+    glEnableVertexAttribArray(0);
+    /* Normal: Attribute 1 */
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
+    glEnableVertexAttribArray(1);
+
+    /* OpenGL Buffer Setup */
+    glGenVertexArrays(1, &vao_1);
+    glGenBuffers(1, &vbo_1);
+    glGenBuffers(1, &ebo_1);
+
+    glBindVertexArray(vao_1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_1);
+    glBufferData(GL_ARRAY_BUFFER, vertex_count_1 * (i32)sizeof(zai_surface_nets_vertex), temp_verts_1, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_1);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count_1 * (i32)sizeof(u32), temp_indices_1, GL_STATIC_DRAW);
 
     /* Position: Attribute 0 */
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)0);
@@ -2466,6 +2518,9 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
       glBindVertexArray(vao);
       glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_INT, 0);
+
+      glBindVertexArray(vao_1);
+      glDrawElements(GL_TRIANGLES, index_count_1, GL_UNSIGNED_INT, 0);
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
