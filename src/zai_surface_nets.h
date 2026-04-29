@@ -18,10 +18,10 @@ typedef struct zai_surface_nets_context
 {
     f32 *density_grid;    /* 1D array [z][y][x] */
     i32 *buffer_indices;  /* 1D array [z][y][x], size dim_size^3 */
-    i32 dim_size;         /* Points per axis */
-    f32 grid_size;        /* World space size */
     f32 iso_level;        /* Surface threshold */
-    zai_vec3 chunk_coord; /* World offset */
+    i32 grid_dimensions;  /* Grid dimensions per axis */
+    f32 grid_total_size;  /* Grid total size spanning */
+    zai_vec3 grid_center; /* Grid center position */
 
     i32 lod_level;      /* 0 = stride 1, 1 = stride 2, 2 = stride 4 */
     u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
@@ -339,11 +339,11 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 x, y, z, i;
     i32 v_count = 0;
     i32 idx_count = 0;
-    i32 dim = ctx->dim_size;
+    i32 dim = ctx->grid_dimensions;
     i32 dim2 = dim * dim;
 
-    f32 scale = ctx->grid_size / (f32)(dim - 1);
-    f32 offset = ctx->grid_size * 0.5f;
+    f32 inv_dim_minus_one = 1.0f / (f32)(dim - 1);
+
     f32 iso = ctx->iso_level;
 
     i32 stride = (1 << ctx->lod_level);
@@ -364,9 +364,9 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     }
 
     /* Outer loops step by stride */
-    for (z = stride; z < dim - stride; z += stride)
+    for (z = 0; z < dim - stride; z += stride)
     {
-        for (y = stride; y < dim - stride; y += stride)
+        for (y = 0; y < dim - stride; y += stride)
         {
             i32 row_idx = (z * dim2) + (y * dim);
             f32 d_cache[4];
@@ -377,7 +377,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
             d_cache[2] = density[row_idx + s_z];
             d_cache[3] = density[row_idx + s_z + s_y];
 
-            for (x = stride; x < dim - stride; x += stride)
+            for (x = 0; x < dim - stride; x += stride)
             {
                 i32 curr = row_idx + x;
                 i32 mask = 0;
@@ -463,9 +463,9 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 inv = 1.0f / (f32)intersections;
 
-                out_vertices[v_count].position.x = avg_pos.x * inv * scale - offset + ctx->chunk_coord.x;
-                out_vertices[v_count].position.y = avg_pos.y * inv * scale - offset + ctx->chunk_coord.y;
-                out_vertices[v_count].position.z = avg_pos.z * inv * scale - offset + ctx->chunk_coord.z;
+                out_vertices[v_count].position.x = ((avg_pos.x * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
+                out_vertices[v_count].position.y = ((avg_pos.y * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
+                out_vertices[v_count].position.z = ((avg_pos.z * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
 
                 sum_lo = d[0] + d[1] + d[2] + d[3];
                 sum_hi = d[4] + d[5] + d[6] + d[7];
@@ -496,6 +496,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 v_count++;
 
                 /* Strided Indices Generation */
+                if (x >= stride && y >= stride && z >= stride)
                 {
                     i32 d_below = (d[0] < iso); /* current index is d[0] */
                     i32 v0, v1, v2, v3;
