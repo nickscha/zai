@@ -2063,39 +2063,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
  * # [SECTION] Marching Cubes
  * #############################################################################
  */
-void initialize_density_grid_2d(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
-{
-  i32 x, y, z;
-  f32 scale = 0.05f;
-
-  for (z = 0; z < dim; ++z)
-  {
-    f32 world_z = (((f32)z / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.z;
-
-    for (x = 0; x < dim; ++x)
-    {
-      f32 world_x = (((f32)x / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.x;
-
-      f32 height = zai_sinf(world_x * scale) * 10.0f +
-                   zai_cosf(world_z * scale) * 10.0f;
-
-      for (y = 0; y < dim; ++y)
-      {
-        f32 world_y = (((f32)y / ((f32)dim - 1.0f) - 0.5f) * world_size) + chunk_coord.y;
-
-        /* Testing */
-        if (x == dim / 2 && y == dim / 2 && z == dim / 2)
-        {
-          height += 10.0f;
-        }
-
-        /* Density: Positive = Inside, Negative = Outside */
-        grid[z * dim * dim + y * dim + x] = height - world_y;
-      }
-    }
-  }
-}
-
 ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_size, zai_vec3 chunk_coord)
 {
   i32 x, y, z;
@@ -2129,6 +2096,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 dim, f32 world_si
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
         f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
         f32 final_density = (noise_val * amplitude) + offset;
+
+        /* final_density = wy + 20.0f; */
 
         /*
         f32 density = zai_sinf(wx * scale) +
@@ -2403,7 +2372,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       }
     }
 
-    /* LOD 0 */
+    /* Chunk 1 */
     ctx_lod0.dim_size = DIM;
     ctx_lod0.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx_lod0.iso_level = 0.0f;   /* The "surface" is where density is 0 */
@@ -2415,16 +2384,16 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.lod_level = 0;
     ctx_lod1.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ;
 
-    /* LOD 1 */
+    /* Chunk 2 */
     ctx_lod1.dim_size = DIM;
     ctx_lod1.grid_size = 100.0f; /* Total world-space size of the chunk */
     ctx_lod1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
     ctx_lod1.chunk_coord.x = 0.0f;
     ctx_lod1.chunk_coord.y = 0.0f;
-    ctx_lod1.chunk_coord.z = -100.0f;
+    ctx_lod1.chunk_coord.z = -ctx_lod0.grid_size;
     ctx_lod1.density_grid = density_grid;
     ctx_lod1.buffer_indices = cell_indices;
-    ctx_lod1.lod_level = 1;
+    ctx_lod1.lod_level = 0;
     ctx_lod1.transition_mask = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
@@ -2434,14 +2403,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
     zai_surface_nets_generate(&ctx_lod0, temp_verts, &vertex_count, temp_indices, &index_count);
     ZAI_PROFILER_END(setup_surface_nets_mesh);
-
-    ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_size, ctx_lod1.chunk_coord);
-    ZAI_PROFILER_END(setup_density_grid_1);
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
-    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
-    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao);
@@ -2462,6 +2423,14 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     /* Normal: Attribute 1 */
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
     glEnableVertexAttribArray(1);
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_size, ctx_lod1.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
+    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
+    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao_1);
