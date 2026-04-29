@@ -1738,6 +1738,63 @@ ZAI_API void zai_render_ui(win32_zai_state *state)
   zai_ui_render_instances_count = 0;
 }
 
+ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_camera *camera, f32 camera_speed)
+{
+  static u8 mouse_attached = 0;
+
+  f32 cam_speed = camera_speed * (f32)state->iTimeDelta;
+
+  if (state->keys_is_down[0x57]) /* W */
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+  }
+
+  if (state->keys_is_down[0x53]) /* S */
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+  }
+
+  if (state->keys_is_down[0x41]) /* A */
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->right, cam_speed));
+  }
+
+  if (state->keys_is_down[0x44]) /* D */
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->right, cam_speed));
+  }
+
+  if (state->keys_is_down[0x20]) /* space */
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
+  }
+
+  if (state->keys_is_down[0x11]) /* control */
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
+  }
+
+  if (state->mouse_left_is_down && !state->mouse_left_was_down)
+  {
+    mouse_attached = !mouse_attached;
+  }
+
+  if (mouse_attached)
+  {
+    f32 mouseSensitivity = 0.1f;
+    camera->yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
+    camera->pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
+    camera->pitch = zai_clampf(camera->pitch, -89.0f, 89.0f);
+
+    if (state->mouse_scroll != 0.0f)
+    {
+      camera->fov = zai_clampf(camera->fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
+    }
+  }
+
+  zai_camera_update(camera);
+}
+
 /* #############################################################################
  * # [SECTION] Clipmap Terrain
  * #############################################################################
@@ -1764,7 +1821,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
   static u32 tex_displacement;
 
   static zai_camera camera = {0};
-  static u8 mouse_attached = 0;
 
   if (!terrain_initialized)
   {
@@ -1962,60 +2018,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    /* Camera movement */
-    {
-      f32 cam_speed = 4000.0f * (f32)state->iTimeDelta;
-
-      if (state->keys_is_down[0x57]) /* W */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x53]) /* S */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x41]) /* A */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x44]) /* D */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x20]) /* space */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->keys_is_down[0x11]) /* control */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->mouse_left_is_down && !state->mouse_left_was_down)
-      {
-        mouse_attached = !mouse_attached;
-      }
-
-      if (mouse_attached)
-      {
-        f32 mouseSensitivity = 0.1f;
-        camera.yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
-        camera.pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
-        camera.pitch = zai_clampf(camera.pitch, -89.0f, 89.0f);
-
-        if (state->mouse_scroll != 0.0f)
-        {
-          camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
-        }
-      }
-
-      zai_camera_update(&camera);
-    }
+    zai_update_camera_movement(state, &camera, 4000.0f);
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
@@ -2173,7 +2176,6 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
   static shader_marching_cubes marching_cubes_shader;
 
   static zai_camera camera = {0};
-  static u8 mouse_attached = 0;
 
   if (!marching_cubes_initialized)
   {
@@ -2288,60 +2290,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    /* Camera movement */
-    {
-      f32 cam_speed = 200.0f * (f32)state->iTimeDelta;
-
-      if (state->keys_is_down[0x57]) /* W */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x53]) /* S */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x41]) /* A */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x44]) /* D */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x20]) /* space */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->keys_is_down[0x11]) /* control */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->mouse_left_is_down && !state->mouse_left_was_down)
-      {
-        mouse_attached = !mouse_attached;
-      }
-
-      if (mouse_attached)
-      {
-        f32 mouseSensitivity = 0.1f;
-        camera.yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
-        camera.pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
-        camera.pitch = zai_clampf(camera.pitch, -89.0f, 89.0f);
-
-        if (state->mouse_scroll != 0.0f)
-        {
-          camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
-        }
-      }
-
-      zai_camera_update(&camera);
-    }
+    zai_update_camera_movement(state, &camera, 200.0f);
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
@@ -2392,7 +2341,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
   static i32 index_count = 0;
 
   static zai_camera camera = {0};
-  static u8 mouse_attached = 0;
 
   static zai_surface_nets_context ctx = {0};
 
@@ -2496,60 +2444,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    /* Camera movement */
-    {
-      f32 cam_speed = 200.0f * (f32)state->iTimeDelta;
-
-      if (state->keys_is_down[0x57]) /* W */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x53]) /* S */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.front, cam_speed));
-      }
-
-      if (state->keys_is_down[0x41]) /* A */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x44]) /* D */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.right, cam_speed));
-      }
-
-      if (state->keys_is_down[0x20]) /* space */
-      {
-        camera.position = zai_vec3_add(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->keys_is_down[0x11]) /* control */
-      {
-        camera.position = zai_vec3_sub(camera.position, zai_vec3_mulf(camera.worldUp, cam_speed));
-      }
-
-      if (state->mouse_left_is_down && !state->mouse_left_was_down)
-      {
-        mouse_attached = !mouse_attached;
-      }
-
-      if (mouse_attached)
-      {
-        f32 mouseSensitivity = 0.1f;
-        camera.yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
-        camera.pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
-        camera.pitch = zai_clampf(camera.pitch, -89.0f, 89.0f);
-
-        if (state->mouse_scroll != 0.0f)
-        {
-          camera.fov = zai_clampf(camera.fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
-        }
-      }
-
-      zai_camera_update(&camera);
-    }
+    zai_update_camera_movement(state, &camera, 200.0f);
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
