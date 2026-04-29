@@ -386,6 +386,11 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 zai_vec3 avg_pos;
                 zai_surface_nets_case *c;
 
+                f32 inv;
+                f32 sum_lo, sum_hi, sum_x0, sum_y0, total;
+                zai_vec3 n;
+                f32 mag_sq;
+
                 /* Slide cache: left face */
                 d[0] = d_cache[0];
                 d[2] = d_cache[1];
@@ -416,87 +421,82 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 if (mask == 0 || mask == 255)
                 {
                     indices[curr] = -1;
+                    continue;
+                }
+
+                /* Vertex generation */
+                avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
+                c = &zai_surface_nets_lut[mask];
+
+                for (i = 0; i < c->edge_count; i++)
+                {
+                    i32 i1 = c->edges[i].a;
+                    i32 i2 = c->edges[i].b;
+
+                    if (((mask >> i1) & 1) != ((mask >> i2) & 1))
+                    {
+                        f32 denom = d[i2] - d[i1];
+
+                        if (denom > 1e-6f || denom < -1e-6f)
+                        {
+                            f32 t = (iso - d[i1]) / denom;
+
+                            f32 x1 = (f32)corner_x[i1];
+                            f32 y1 = (f32)corner_y[i1];
+                            f32 z1 = (f32)corner_z[i1];
+
+                            f32 x2 = (f32)corner_x[i2];
+                            f32 y2 = (f32)corner_y[i2];
+                            f32 z2 = (f32)corner_z[i2];
+
+                            avg_pos.x += (f32)x + (f32)stride * (x1 + t * (x2 - x1));
+                            avg_pos.y += (f32)y + (f32)stride * (y1 + t * (y2 - y1));
+                            avg_pos.z += (f32)z + (f32)stride * (z1 + t * (z2 - z1));
+
+                            intersections++;
+                        }
+                    }
+                }
+
+                if (intersections == 0)
+                {
+                    indices[curr] = -1;
+                    continue;
+                }
+
+                inv = 1.0f / (f32)intersections;
+
+                out_vertices[v_count].position.x = avg_pos.x * inv * scale - offset + ctx->chunk_coord.x;
+                out_vertices[v_count].position.y = avg_pos.y * inv * scale - offset + ctx->chunk_coord.y;
+                out_vertices[v_count].position.z = avg_pos.z * inv * scale - offset + ctx->chunk_coord.z;
+
+                sum_lo = d[0] + d[1] + d[2] + d[3];
+                sum_hi = d[4] + d[5] + d[6] + d[7];
+                sum_x0 = d[0] + d[2] + d[4] + d[6];
+                sum_y0 = d[0] + d[1] + d[4] + d[5];
+                total = sum_lo + sum_hi;
+
+                n.x = sum_x0 - (total - sum_x0);
+                n.y = sum_y0 - (total - sum_y0);
+                n.z = sum_lo - sum_hi;
+
+                mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
+
+                if (mag_sq > 1e-6f)
+                {
+                    f32 inv_mag = zai_invsqrtf(mag_sq);
+
+                    out_vertices[v_count].normal.x = n.x * inv_mag;
+                    out_vertices[v_count].normal.y = n.y * inv_mag;
+                    out_vertices[v_count].normal.z = n.z * inv_mag;
                 }
                 else
                 {
-                    /* Vertex generation */
-                    avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
-                    c = &zai_surface_nets_lut[mask];
-
-                    for (i = 0; i < c->edge_count; i++)
-                    {
-                        i32 i1 = c->edges[i].a;
-                        i32 i2 = c->edges[i].b;
-
-                        if (((mask >> i1) & 1) != ((mask >> i2) & 1))
-                        {
-                            f32 denom = d[i2] - d[i1];
-
-                            if (denom > 1e-6f || denom < -1e-6f)
-                            {
-                                f32 t = (iso - d[i1]) / denom;
-
-                                f32 x1 = (f32)corner_x[i1];
-                                f32 y1 = (f32)corner_y[i1];
-                                f32 z1 = (f32)corner_z[i1];
-
-                                f32 x2 = (f32)corner_x[i2];
-                                f32 y2 = (f32)corner_y[i2];
-                                f32 z2 = (f32)corner_z[i2];
-
-                                avg_pos.x += (f32)x + (f32)stride * (x1 + t * (x2 - x1));
-                                avg_pos.y += (f32)y + (f32)stride * (y1 + t * (y2 - y1));
-                                avg_pos.z += (f32)z + (f32)stride * (z1 + t * (z2 - z1));
-
-                                intersections++;
-                            }
-                        }
-                    }
-
-                    if (intersections > 0)
-                    {
-                        f32 inv = 1.0f / (f32)intersections;
-                        f32 sum_lo, sum_hi, sum_x0, sum_y0, total;
-                        zai_vec3 n;
-                        f32 mag_sq;
-
-                        out_vertices[v_count].position.x = avg_pos.x * inv * scale - offset + ctx->chunk_coord.x;
-                        out_vertices[v_count].position.y = avg_pos.y * inv * scale - offset + ctx->chunk_coord.y;
-                        out_vertices[v_count].position.z = avg_pos.z * inv * scale - offset + ctx->chunk_coord.z;
-
-                        sum_lo = d[0] + d[1] + d[2] + d[3];
-                        sum_hi = d[4] + d[5] + d[6] + d[7];
-                        sum_x0 = d[0] + d[2] + d[4] + d[6];
-                        sum_y0 = d[0] + d[1] + d[4] + d[5];
-                        total = sum_lo + sum_hi;
-
-                        n.x = sum_x0 - (total - sum_x0);
-                        n.y = sum_y0 - (total - sum_y0);
-                        n.z = sum_lo - sum_hi;
-
-                        mag_sq = n.x * n.x + n.y * n.y + n.z * n.z;
-
-                        if (mag_sq > 1e-6f)
-                        {
-                            f32 inv_mag = zai_invsqrtf(mag_sq);
-
-                            out_vertices[v_count].normal.x = n.x * inv_mag;
-                            out_vertices[v_count].normal.y = n.y * inv_mag;
-                            out_vertices[v_count].normal.z = n.z * inv_mag;
-                        }
-                        else
-                        {
-                            out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
-                        }
-
-                        indices[curr] = v_count;
-                        v_count++;
-                    }
-                    else
-                    {
-                        indices[curr] = -1;
-                    }
+                    out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
                 }
+
+                indices[curr] = v_count;
+                v_count++;
 
                 /* Strided Indices Generation */
                 {
