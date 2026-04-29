@@ -351,9 +351,12 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 s_y = stride * dim;
     i32 s_z = stride * dim2;
 
+    f32 *density = ctx->density_grid;
+    i32 *indices = ctx->buffer_indices;
+
     for (i = 0; i < dim * dim2; i++)
     {
-        ctx->buffer_indices[i] = -1;
+        indices[i] = -1;
     }
 
     /* Outer loops step by stride */
@@ -365,10 +368,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
             f32 d_cache[4];
 
             /* Initialize Cache for the start of the X row */
-            d_cache[0] = ctx->density_grid[row_idx];
-            d_cache[1] = ctx->density_grid[row_idx + s_y];
-            d_cache[2] = ctx->density_grid[row_idx + s_z];
-            d_cache[3] = ctx->density_grid[row_idx + s_z + s_y];
+            d_cache[0] = density[row_idx];
+            d_cache[1] = density[row_idx + s_y];
+            d_cache[2] = density[row_idx + s_z];
+            d_cache[3] = density[row_idx + s_z + s_y];
 
             for (x = stride; x < dim - stride; x += stride)
             {
@@ -386,10 +389,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 d[6] = d_cache[3];
 
                 /* Load new right face at current + stride */
-                d_cache[0] = ctx->density_grid[curr + s_x];
-                d_cache[1] = ctx->density_grid[curr + s_x + s_y];
-                d_cache[2] = ctx->density_grid[curr + s_x + s_z];
-                d_cache[3] = ctx->density_grid[curr + s_x + s_z + s_y];
+                d_cache[0] = density[curr + s_x];
+                d_cache[1] = density[curr + s_x + s_y];
+                d_cache[2] = density[curr + s_x + s_z];
+                d_cache[3] = density[curr + s_x + s_z + s_y];
 
                 d[1] = d_cache[0];
                 d[3] = d_cache[1];
@@ -408,7 +411,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 if (mask == 0 || mask == 255)
                 {
-                    ctx->buffer_indices[curr] = -1;
+                    indices[curr] = -1;
                 }
                 else
                 {
@@ -473,12 +476,12 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                             out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
                         }
 
-                        ctx->buffer_indices[curr] = v_count;
+                        indices[curr] = v_count;
                         v_count++;
                     }
                     else
                     {
-                        ctx->buffer_indices[curr] = -1;
+                        indices[curr] = -1;
                     }
                 }
 
@@ -490,10 +493,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     /* X-axis edge */
                     if (d_below != (d[1] < iso))
                     {
-                        v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - s_y];
-                        v2 = ctx->buffer_indices[curr - s_y - s_z];
-                        v3 = ctx->buffer_indices[curr - s_z];
+                        v0 = indices[curr];
+                        v1 = indices[curr - s_y];
+                        v2 = indices[curr - s_y - s_z];
+                        v3 = indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
@@ -521,10 +524,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     /* Y-axis edge */
                     if (d_below != (d[2] < iso))
                     {
-                        v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - s_x];
-                        v2 = ctx->buffer_indices[curr - s_x - s_z];
-                        v3 = ctx->buffer_indices[curr - s_z];
+                        v0 = indices[curr];
+                        v1 = indices[curr - s_x];
+                        v2 = indices[curr - s_x - s_z];
+                        v3 = indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
@@ -552,10 +555,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     /* Z-axis edge */
                     if (d_below != (d[4] < iso))
                     {
-                        v0 = ctx->buffer_indices[curr];
-                        v1 = ctx->buffer_indices[curr - s_x];
-                        v2 = ctx->buffer_indices[curr - s_x - s_y];
-                        v3 = ctx->buffer_indices[curr - s_y];
+                        v0 = indices[curr];
+                        v1 = indices[curr - s_x];
+                        v2 = indices[curr - s_x - s_y];
+                        v3 = indices[curr - s_y];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
