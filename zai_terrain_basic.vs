@@ -33,7 +33,6 @@ void main() {
 
     float height = 0.0;
 
-    /* Set outputs */    
     vNormal = vec3(0.0, 1.0, 0.0);
     vWorldPos = vec3(worldXZ.x, height, worldXZ.y);
     gl_Position = MVP * vec4(vWorldPos, 1.0);
