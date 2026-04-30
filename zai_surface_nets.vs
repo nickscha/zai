@@ -9,7 +9,7 @@ out float vDepth;
 uniform mat4 MVP;
 
 void main() {
-    vNormal = aNormal;
+    vNormal = normalize(aNormal);
     vWorldPos = aPos;
     gl_Position = MVP * vec4(aPos, 1.0);
     vDepth = gl_Position.w;

@@ -11,7 +11,7 @@
 typedef struct zai_surface_nets_vertex
 {
     zai_vec3 position;
-    zai_vec3 normal;
+    zai_vec3 normal; /* not normalized, should be done on GPU */
 } zai_surface_nets_vertex;
 
 typedef struct zai_surface_nets_context
@@ -481,15 +481,15 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 if (mag_sq > 1e-6f)
                 {
-                    f32 inv_mag = zai_invsqrtf(mag_sq);
-
-                    out_vertices[v_count].normal.x = n.x * inv_mag;
-                    out_vertices[v_count].normal.y = n.y * inv_mag;
-                    out_vertices[v_count].normal.z = n.z * inv_mag;
+                    out_vertices[v_count].normal.x = n.x;
+                    out_vertices[v_count].normal.y = n.y;
+                    out_vertices[v_count].normal.z = n.z;
                 }
                 else
                 {
-                    out_vertices[v_count].normal = zai_vec3_init(0, 1, 0);
+                    out_vertices[v_count].normal.x = 0.0f;
+                    out_vertices[v_count].normal.y = 1.0f;
+                    out_vertices[v_count].normal.z = 0.0f;
                 }
 
                 indices[curr] = v_count;

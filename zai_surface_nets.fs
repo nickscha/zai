@@ -11,7 +11,7 @@ vec3 aces_tonemap(vec3 x) {
 }
 
 void main() {
-    vec3 norm = normalize(vNormal);
+    vec3 norm = vNormal;
     vec3 rd = normalize(vWorldPos);
     vec3 viewDir = -rd;
     
