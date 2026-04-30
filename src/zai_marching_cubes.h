@@ -291,8 +291,8 @@ static i32 zai_marching_cubes_triangulation[256][16] = {
 typedef struct zai_marching_cubes_vertex
 {
     zai_vec3 position;
-    zai_vec3 normal;
-    i32 id[2]; /* used for vertex shadering (indexing) */
+    zai_vec3 normal; /* not normalized, should be done on GPU */
+    i32 id[2];       /* used for vertex shadering (indexing) */
 
 } zai_marching_cubes_vertex;
 
@@ -408,13 +408,6 @@ ZAI_API ZAI_INLINE zai_marching_cubes_vertex zai_marching_cubes_create_vertex(
         v.normal.x = 0.0f;
         v.normal.y = 1.0f;
         v.normal.z = 0.0f;
-    }
-    else
-    {
-        f32 inv_mag = 1.0f / zai_sqrtf(mag_sq);
-        v.normal.x *= inv_mag;
-        v.normal.y *= inv_mag;
-        v.normal.z *= inv_mag;
     }
 
     v.id[0] = z1 * ctx->dim_size * ctx->dim_size + y1 * ctx->dim_size + x1;

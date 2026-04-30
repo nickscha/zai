@@ -7,6 +7,6 @@ out vec3 vNormal;
 uniform mat4 MVP;
 
 void main() {
-    vNormal = aNormal; 
+    vNormal = normalize(aNormal); 
     gl_Position = MVP * vec4(aPos, 1.0);
 }
