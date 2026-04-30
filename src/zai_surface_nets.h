@@ -358,7 +358,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     static u8 corner_y[8] = {0, 0, 1, 1, 0, 0, 1, 1};
     static u8 corner_z[8] = {0, 0, 0, 0, 1, 1, 1, 1};
 
-    for (i = 0; i < dim * dim2; i++)
+    for (i = 0; i < dim * dim2; ++i)
     {
         indices[i] = -1;
     }
