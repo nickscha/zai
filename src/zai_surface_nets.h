@@ -468,7 +468,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 out_vertices[v_count].position.x = (((avg_pos.x * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
                 out_vertices[v_count].position.y = (((avg_pos.y * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
                 out_vertices[v_count].position.z = (((avg_pos.z * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
-                
+
                 sum_lo = d[0] + d[1] + d[2] + d[3];
                 sum_hi = d[4] + d[5] + d[6] + d[7];
                 sum_x0 = d[0] + d[2] + d[4] + d[6];
