@@ -342,14 +342,16 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 dim = ctx->grid_dimensions;
     i32 dim2 = dim * dim;
 
-    f32 inv_dim_minus_one = 1.0f / (f32)(dim - 1);
-
     f32 iso = ctx->iso_level;
 
     i32 stride = (1 << ctx->lod_level);
     i32 s_x = stride;
     i32 s_y = stride * dim;
     i32 s_z = stride * dim2;
+
+    f32 min_val = (f32)stride * 0.5f;
+    f32 range = (f32)(dim - 1 - stride);
+    f32 inv_range = 1.0f / range;
 
     f32 *density = ctx->density_grid;
     i32 *indices = ctx->buffer_indices;
@@ -463,10 +465,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 inv = 1.0f / (f32)intersections;
 
-                out_vertices[v_count].position.x = ((avg_pos.x * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
-                out_vertices[v_count].position.y = ((avg_pos.y * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
-                out_vertices[v_count].position.z = ((avg_pos.z * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
-
+                out_vertices[v_count].position.x = (((avg_pos.x * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
+                out_vertices[v_count].position.y = (((avg_pos.y * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
+                out_vertices[v_count].position.z = (((avg_pos.z * inv) - min_val) * inv_range - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
+                
                 sum_lo = d[0] + d[1] + d[2] + d[3];
                 sum_hi = d[4] + d[5] + d[6] + d[7];
                 sum_x0 = d[0] + d[2] + d[4] + d[6];

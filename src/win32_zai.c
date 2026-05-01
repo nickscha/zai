@@ -2063,7 +2063,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
  * # [SECTION] Marching Cubes
  * #############################################################################
  */
-ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, f32 grid_total_size, zai_vec3 grid_center)
+void initialize_density_grid_old(f32 *grid, i32 grid_dimensions, f32 grid_total_size, zai_vec3 grid_center)
 {
   i32 x, y, z;
   static f32 frequency = 0.03f;
@@ -2098,8 +2098,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         f32 final_density = (noise_val * amplitude) + offset;
 
         /*
-        final_density = wy + 20.0f;
          */
+        final_density = wy + 20.0f;
 
         /*
         f32 density = zai_sinf(wx * scale) +
@@ -2120,6 +2120,59 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         {
           final_density = (noise_val * amplitude);
         }
+        */
+
+        grid[z * grid_dimensions * grid_dimensions + y * grid_dimensions + x] = final_density;
+      }
+    }
+  }
+}
+
+ZAI_API ZAI_INLINE void initialize_density_grid(
+    f32 *grid,
+    i32 grid_dimensions,
+    f32 grid_total_size,
+    zai_vec3 grid_center,
+    i32 lod_level)
+{
+  i32 x, y, z;
+  i32 stride = (1 << lod_level);
+
+  /* These must match the generator's remapping math exactly */
+  f32 min_val = (f32)stride * 0.5f;
+  f32 range = (f32)(grid_dimensions - 1 - stride);
+  f32 inv_range = 1.0f / range;
+
+  static f32 frequency = 0.03f;
+  static f32 amplitude = 15.0f;
+  static f32 lacunarity = 2.0f;
+  static f32 gain = 0.5f;
+  static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
+  static i32 octaves = 6;
+
+  for (z = 0; z < grid_dimensions; ++z)
+  {
+    /* Calculate world Z adjusted for LOD shrinkage */
+    f32 norm_z = ((f32)z - min_val) * inv_range;
+    f32 wz = (norm_z - 0.5f) * grid_total_size + grid_center.z;
+
+    for (y = 0; y < grid_dimensions; ++y)
+    {
+      f32 norm_y = ((f32)y - min_val) * inv_range;
+      f32 wy = (norm_y - 0.5f) * grid_total_size + grid_center.y;
+
+      for (x = 0; x < grid_dimensions; ++x)
+      {
+        f32 norm_x = ((f32)x - min_val) * inv_range;
+
+        f32 wx = (norm_x - 0.5f) * grid_total_size + grid_center.x;
+
+        f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
+        f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
+        f32 final_density = (noise_val * amplitude) + offset;
+
+        /*
+        final_density = wy + 20.0f;
         */
 
         grid[z * grid_dimensions * grid_dimensions + y * grid_dimensions + x] = final_density;
@@ -2201,7 +2254,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
-    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
+    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord, ctx.lod_level);
     ZAI_PROFILER_END(setup_density_grid);
 
     ZAI_PROFILER_BEGIN(setup_triangles);
@@ -2230,7 +2283,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx_1.lod_level = 1;
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord);
+    initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord, ctx_1.lod_level);
     ZAI_PROFILER_END(setup_density_grid_1);
 
     ZAI_PROFILER_BEGIN(setup_triangles_1);
@@ -2391,23 +2444,20 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     /* Chunk 2 */
     {
-      f32 cell_size = ctx_lod0.grid_total_size / (f32)(DIM - 1);
-      f32 mesh_stride = ctx_lod0.grid_total_size - cell_size;
-
       ctx_lod1.grid_dimensions = DIM;
       ctx_lod1.grid_total_size = 100.0f;
       ctx_lod1.grid_center.x = 0.0f;
       ctx_lod1.grid_center.y = 0.0f;
-      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - mesh_stride;
+      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - ctx_lod0.grid_total_size;
       ctx_lod1.iso_level = 0.0f;
       ctx_lod1.density_grid = density_grid;
       ctx_lod1.buffer_indices = cell_indices;
-      ctx_lod1.lod_level = 0;
+      ctx_lod1.lod_level = 1;
       ctx_lod1.transition_mask = 0;
     }
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
-    initialize_density_grid(density_grid, DIM, ctx_lod0.grid_total_size, ctx_lod0.grid_center);
+    initialize_density_grid(density_grid, DIM, ctx_lod0.grid_total_size, ctx_lod0.grid_center, ctx_lod0.lod_level);
     ZAI_PROFILER_END(setup_density_grid);
 
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
@@ -2435,7 +2485,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     glEnableVertexAttribArray(1);
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
+    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center, ctx_lod1.lod_level);
     ZAI_PROFILER_END(setup_density_grid_1);
 
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
