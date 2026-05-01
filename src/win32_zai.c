@@ -2440,7 +2440,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.density_grid = density_grid;
     ctx_lod0.buffer_indices = cell_indices;
     ctx_lod0.lod_level = 0;
-    ctx_lod0.transition_mask = 0;
+    ctx_lod0.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ;
 
     /* Chunk 2 */
     {
