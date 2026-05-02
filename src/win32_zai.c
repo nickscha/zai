@@ -2098,8 +2098,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         f32 final_density = (noise_val * amplitude) + offset;
 
         /*
-         */
         final_density = wy + 20.0f;
+         */
 
         /*
         f32 density = zai_sinf(wx * scale) +
@@ -2402,7 +2402,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       ctx_lod1.iso_level = 0.0f;
       ctx_lod1.density_grid = density_grid;
       ctx_lod1.buffer_indices = cell_indices;
-      ctx_lod1.lod_level = 1;
+      ctx_lod1.lod_level = 0;
       ctx_lod1.transition_mask = 0;
     }
 
