@@ -17,6 +17,7 @@ LICENSE
 #include "zai_dual_contouring.h"
 #include "zai_surface_nets.h"
 #include "zai_noise.h"
+#include "zai_erosion.h"
 #include "zai_opengl.h"
 #include "zai_sdf_scene.h"
 #include "zai_sparse_grid.h"
