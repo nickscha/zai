@@ -25,8 +25,6 @@ typedef struct zai_erosion_context
 
 } zai_erosion_context;
 
-#define ZAI_EROSION_TAU 6.283185307f
-
 ZAI_API ZAI_INLINE f32 zai_erosion_clamp01(f32 t)
 {
     return zai_maxf(0.0f, zai_minf(1.0f, t));
@@ -107,6 +105,7 @@ zai_erosion_context zai_erosion_erosion_default_settings(void)
     s.pNoise.y = 0.25f;
     s.pNoise.z = 0.75f;
     s.pNoise.w = 0.0f;
+
     return s;
 }
 
@@ -142,14 +141,17 @@ ZAI_API ZAI_INLINE zai_vec3 zai_erosion_hash33(zai_vec3 p)
 ZAI_API ZAI_INLINE zai_vec2 zai_erosion_phacelle_3d(zai_vec3 p, zai_vec3 dir, zai_vec3 normal, f32 f, f32 offset, f32 norm, zai_vec3 *sideDir)
 {
     zai_vec3 sDir = zai_vec3_cross(dir, normal);
-    f32 offsetRads = offset * ZAI_EROSION_TAU;
+    f32 offsetRads = offset * ZAI_TAU;
     zai_vec3 pInt, pFract, phaseDir = zai_vec3_zero;
     f32 weightSum = 0.0f;
     i32 x, y, z;
 
-    sDir.x *= f * ZAI_EROSION_TAU;
-    sDir.y *= f * ZAI_EROSION_TAU;
-    sDir.z *= f * ZAI_EROSION_TAU;
+    zai_vec2 intrep;
+    f32 mag;
+
+    sDir.x *= f * ZAI_TAU;
+    sDir.y *= f * ZAI_TAU;
+    sDir.z *= f * ZAI_TAU;
 
     *sideDir = sDir;
 
@@ -195,14 +197,14 @@ ZAI_API ZAI_INLINE zai_vec2 zai_erosion_phacelle_3d(zai_vec3 p, zai_vec3 dir, za
         }
     }
     weightSum = zai_maxf(weightSum, 0.00001f);
-    {
-        zai_vec2 intrep = zai_vec2_init(phaseDir.x / weightSum, phaseDir.y / weightSum);
-        f32 mag = zai_sqrtf(zai_vec2_dot(intrep, intrep));
-        mag = zai_maxf(1.0f - norm, mag);
-        intrep.x /= mag;
-        intrep.y /= mag;
-        return intrep;
-    }
+
+    intrep = zai_vec2_init(phaseDir.x / weightSum, phaseDir.y / weightSum);
+    mag = zai_sqrtf(zai_vec2_dot(intrep, intrep));
+    mag = zai_maxf(1.0f - norm, mag);
+    intrep.x /= mag;
+    intrep.y /= mag;
+
+    return intrep;
 }
 
 ZAI_API ZAI_INLINE zai_vec4 zai_erosion_filter_3d(zai_vec3 pos, zai_vec3 normal, zai_vec3 dir, f32 height, zai_erosion_context config)
