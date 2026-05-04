@@ -2071,59 +2071,33 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
   static f32 amplitude = 15.0f;
   static f32 lacunarity = 2.0f;
   static f32 gain = 0.5f;
-  static i32 seed = (i32)0xDEADBEEF;
   static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
   static i32 octaves = 6;
 
-  (void)seed;
-  (void)zai_noise_rotation;
+  /* Padded dimension is DIM + 1 */
+  i32 p_dim = grid_dimensions + 1;
 
-  for (z = 0; z < grid_dimensions; ++z)
+  for (z = 0; z < p_dim; ++z)
   {
     f32 wz = (((f32)z / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.z;
 
-    for (y = 0; y < grid_dimensions; ++y)
+    for (y = 0; y < p_dim; ++y)
     {
       f32 wy = (((f32)y / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.y;
 
-      for (x = 0; x < grid_dimensions; ++x)
+      for (x = 0; x < p_dim; ++x)
       {
         f32 wx = (((f32)x / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.x;
 
-        /* f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
-        /* f32 noise_val = zai_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain, seed); */
-        /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
-        /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
         f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
         f32 final_density = (noise_val * amplitude) + offset;
 
         /*
-        final_density = wy + 20.0f;
          */
+        final_density = wy + 20.0f;
 
-        /*
-        f32 density = zai_sinf(wx * scale) +
-                      zai_sinf(wy * scale) +
-                      zai_sinf(wz * scale);
-
-        density += zai_sinf(wx * scale * 2.1f) * 0.5f;
-        density += zai_sinf(wy * scale * 2.1f) * 0.5f;
-        density += zai_sinf(wz * scale * 2.1f) * 0.5f;
-        */
-
-        /*
-        if (x == 0 || x == dim - 1 || y == 0 || y == dim - 1 || z == 0 || z == dim - 1)
-        {
-          final_density = 1.0f;
-        }
-        else
-        {
-          final_density = (noise_val * amplitude);
-        }
-        */
-
-        grid[z * grid_dimensions * grid_dimensions + y * grid_dimensions + x] = final_density;
+        grid[z * p_dim * p_dim + y * p_dim + x] = final_density;
       }
     }
   }
@@ -2333,12 +2307,14 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
   if (!surface_nets_initialized)
   {
     f32 *density_grid;
+    f32 *density_grid_1;
     i32 *cell_indices; /* Required for vertex lookup */
 
     ZAI_PROFILER_BEGIN(setup_surface_nets);
 
-    density_grid = VirtualAlloc(0, DIM * DIM * DIM * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    cell_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    density_grid = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    density_grid_1 = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    cell_indices = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
@@ -2390,16 +2366,13 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     /* Chunk 2 */
     {
-      f32 cell_size = ctx_lod0.grid_total_size / (f32)(DIM - 1);
-      f32 mesh_stride = ctx_lod0.grid_total_size - cell_size;
-
       ctx_lod1.grid_dimensions = DIM;
       ctx_lod1.grid_total_size = 100.0f;
       ctx_lod1.grid_center.x = 0.0f;
       ctx_lod1.grid_center.y = 0.0f;
-      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - mesh_stride;
+      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - ctx_lod0.grid_total_size;
       ctx_lod1.iso_level = 0.0f;
-      ctx_lod1.density_grid = density_grid;
+      ctx_lod1.density_grid = density_grid_1;
       ctx_lod1.buffer_indices = cell_indices;
     }
 
@@ -2432,7 +2405,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     glEnableVertexAttribArray(1);
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
+    initialize_density_grid(density_grid_1, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
     ZAI_PROFILER_END(setup_density_grid_1);
 
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
