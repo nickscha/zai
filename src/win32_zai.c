@@ -2094,8 +2094,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         f32 final_density = (noise_val * amplitude) + offset;
 
         /*
-         */
         final_density = wy + 20.0f;
+         */
 
         grid[z * p_dim * p_dim + y * p_dim + x] = final_density;
       }

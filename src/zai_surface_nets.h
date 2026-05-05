@@ -25,14 +25,6 @@ typedef struct zai_surface_nets_context
 
 } zai_surface_nets_context;
 
-/* Transition Mask Bit Definitions (consistent with the logic below) */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PX (1 << 0) /* +X */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NX (1 << 1) /* -X */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PY (1 << 2) /* +Y */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NY (1 << 3) /* -Y */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PZ (1 << 4) /* +Z */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NZ (1 << 5) /* -Z */
-
 typedef struct zai_surface_nets_edge
 {
     u8 a;
@@ -416,7 +408,9 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 {
                     i32 i1 = c->edges[i].a;
                     i32 i2 = c->edges[i].b;
+
                     f32 denom = d[i2] - d[i1];
+                    
                     if (denom > 1e-6f || denom < -1e-6f)
                     {
                         f32 t = (iso - d[i1]) / denom;
@@ -437,6 +431,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 inv = 1.0f / (f32)intersections;
 
+                /* Positions */
                 out_vertices[v_count].position.x = ((avg_pos.x * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
                 out_vertices[v_count].position.y = ((avg_pos.y * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
                 out_vertices[v_count].position.z = ((avg_pos.z * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
@@ -447,6 +442,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 sum_x0 = d[0] + d[2] + d[4] + d[6];
                 sum_y0 = d[0] + d[1] + d[4] + d[5];
                 total = sum_lo + sum_hi;
+
                 n.x = sum_x0 - (total - sum_x0);
                 n.y = sum_y0 - (total - sum_y0);
                 n.z = sum_lo - sum_hi;
