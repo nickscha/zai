@@ -359,6 +359,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
             i32 row_idx = (z * p_dim2) + (y * p_dim);
             f32 d_cache[4];
 
+            /* Sliding density cache */
             d_cache[0] = density[row_idx];
             d_cache[1] = density[row_idx + s_y];
             d_cache[2] = density[row_idx + s_z];
@@ -410,7 +411,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     i32 i2 = c->edges[i].b;
 
                     f32 denom = d[i2] - d[i1];
-                    
+
                     if (denom > 1e-6f || denom < -1e-6f)
                     {
                         f32 t = (iso - d[i1]) / denom;
