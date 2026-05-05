@@ -2363,6 +2363,8 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.iso_level = 0.0f; /* The "surface" is where density is 0 */
     ctx_lod0.density_grid = density_grid;
     ctx_lod0.buffer_indices = cell_indices;
+    ctx_lod0.lod_stride = 0;
+    ctx_lod0.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ;
 
     /* Chunk 2 */
     {
@@ -2374,6 +2376,8 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       ctx_lod1.iso_level = 0.0f;
       ctx_lod1.density_grid = density_grid_1;
       ctx_lod1.buffer_indices = cell_indices;
+      ctx_lod1.lod_stride = 1;
+      ctx_lod1.transition_mask = 0;
     }
 
     ZAI_PROFILER_BEGIN(setup_density_grid);

@@ -23,7 +23,17 @@ typedef struct zai_surface_nets_context
     f32 grid_total_size;  /* Grid total size spanning */
     zai_vec3 grid_center; /* Grid center position */
 
+    i32 lod_stride;     /* 0 = stride 1, 1 = stride 2, 2 = stride 4 */
+    u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
+
 } zai_surface_nets_context;
+
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PX (1 << 0) /* +X */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NX (1 << 1) /* -X */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PY (1 << 2) /* +Y */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NY (1 << 3) /* -Y */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_PZ (1 << 4) /* +Z */
+#define ZAI_SURFACE_NETS_TRANSITION_MASK_NZ (1 << 5) /* -Z */
 
 typedef struct zai_surface_nets_edge
 {
