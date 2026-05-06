@@ -2312,15 +2312,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     ZAI_PROFILER_BEGIN(setup_surface_nets);
 
-    density_grid = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    density_grid_1 = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    cell_indices = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
     camera = zai_camera_init();
     camera.position.y = 20.0f;
     camera.position.z = 80.0f;
@@ -2354,6 +2345,16 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       }
     }
 
+    /* Memory Setup for chunks */
+    density_grid = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    density_grid_1 = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    cell_indices = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    temp_verts = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_verts_1 = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices_1 = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
     /* Chunk 1 */
     ctx_lod0.grid_dimensions = DIM;
     ctx_lod0.grid_total_size = 100.0f; /* Total world-space size of the chunk */
@@ -2364,21 +2365,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.density_grid = density_grid;
     ctx_lod0.buffer_indices = cell_indices;
     ctx_lod0.lod_stride = 0;
-    ctx_lod0.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ;
-
-    /* Chunk 2 */
-    {
-      ctx_lod1.grid_dimensions = DIM;
-      ctx_lod1.grid_total_size = 100.0f;
-      ctx_lod1.grid_center.x = 0.0f;
-      ctx_lod1.grid_center.y = 0.0f;
-      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - ctx_lod0.grid_total_size;
-      ctx_lod1.iso_level = 0.0f;
-      ctx_lod1.density_grid = density_grid_1;
-      ctx_lod1.buffer_indices = cell_indices;
-      ctx_lod1.lod_stride = 1;
-      ctx_lod1.transition_mask = 0;
-    }
+    ctx_lod0.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ; /* Chunk 1 has higher LOD Chunk 2 at -Z direction */
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx_lod0.grid_total_size, ctx_lod0.grid_center);
@@ -2387,6 +2374,26 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
     zai_surface_nets_generate(&ctx_lod0, temp_verts, &vertex_count, temp_indices, &index_count);
     ZAI_PROFILER_END(setup_surface_nets_mesh);
+
+    /* Chunk 2 */
+    ctx_lod1.grid_dimensions = DIM;
+    ctx_lod1.grid_total_size = 100.0f;
+    ctx_lod1.grid_center.x = 0.0f;
+    ctx_lod1.grid_center.y = 0.0f;
+    ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - ctx_lod0.grid_total_size;
+    ctx_lod1.iso_level = 0.0f;
+    ctx_lod1.density_grid = density_grid_1;
+    ctx_lod1.buffer_indices = cell_indices;
+    ctx_lod1.lod_stride = 1;
+    ctx_lod1.transition_mask = 0;
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid_1, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
+    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
+    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao);
@@ -2407,14 +2414,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     /* Normal: Attribute 1 */
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
     glEnableVertexAttribArray(1);
-
-    ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid_1, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
-    ZAI_PROFILER_END(setup_density_grid_1);
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
-    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
-    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao_1);
