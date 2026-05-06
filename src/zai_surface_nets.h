@@ -23,7 +23,6 @@ typedef struct zai_surface_nets_context
     f32 grid_total_size;  /* Grid total size spanning */
     zai_vec3 grid_center; /* Grid center position */
 
-    i32 lod_stride;     /* 0 = stride 1, 1 = stride 2, 2 = stride 4 */
     u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
 
 } zai_surface_nets_context;
@@ -338,17 +337,14 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 x, y, z, i;
     i32 v_count = 0;
     i32 idx_count = 0;
+
     i32 dim = ctx->grid_dimensions;
 
-    i32 p_dim = dim + 1;
-    i32 p_dim2 = p_dim * p_dim;
-
-    f32 inv_dim_minus_one = 1.0f / (f32)(dim - 1);
-    f32 iso = ctx->iso_level;
-
     i32 s_x = 1;
-    i32 s_y = p_dim;
-    i32 s_z = p_dim2;
+    i32 s_y = dim;
+    i32 s_z = dim * dim;
+
+    f32 iso = ctx->iso_level;
 
     f32 *density = ctx->density_grid;
     i32 *indices = ctx->buffer_indices;
@@ -357,16 +353,16 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     static u8 corner_y[8] = {0, 0, 1, 1, 0, 0, 1, 1};
     static u8 corner_z[8] = {0, 0, 0, 0, 1, 1, 1, 1};
 
-    for (i = 0; i < p_dim * p_dim2; ++i)
+    for (i = 0; i < dim * dim * dim; ++i)
     {
         indices[i] = -1;
     }
 
-    for (z = 0; z < dim; z++)
+    for (z = 0; z < dim - 1; z++)
     {
-        for (y = 0; y < dim; y++)
+        for (y = 0; y < dim - 1; y++)
         {
-            i32 row_idx = (z * p_dim2) + (y * p_dim);
+            i32 row_idx = (z * s_z) + (y * s_y);
             f32 d_cache[4];
 
             /* Sliding density cache */
@@ -375,7 +371,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
             d_cache[2] = density[row_idx + s_z];
             d_cache[3] = density[row_idx + s_z + s_y];
 
-            for (x = 0; x < dim; x++)
+            for (x = 0; x < dim - 1; x++)
             {
                 i32 curr = row_idx + x;
                 i32 mask = 0;
@@ -443,9 +439,25 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 inv = 1.0f / (f32)intersections;
 
                 /* Positions */
-                out_vertices[v_count].position.x = ((avg_pos.x * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
-                out_vertices[v_count].position.y = ((avg_pos.y * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
-                out_vertices[v_count].position.z = ((avg_pos.z * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
+                {
+                    f32 local_x = avg_pos.x * inv;
+                    f32 local_y = avg_pos.y * inv;
+                    f32 local_z = avg_pos.z * inv;
+
+                    f32 range;
+                    f32 norm_x;
+                    f32 norm_y;
+                    f32 norm_z;
+
+                    range = (f32)dim - 2.0f;
+                    norm_x = (local_x - 0.5f) / range;
+                    norm_y = (local_y - 0.5f) / range;
+                    norm_z = (local_z - 0.5f) / range;
+
+                    out_vertices[v_count].position.x = (norm_x - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
+                    out_vertices[v_count].position.y = (norm_y - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
+                    out_vertices[v_count].position.z = (norm_z - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
+                }
 
                 /* Normals */
                 sum_lo = d[0] + d[1] + d[2] + d[3];

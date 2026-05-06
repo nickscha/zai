@@ -2074,20 +2074,23 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
   static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
   static i32 octaves = 6;
 
-  /* Padded dimension is DIM + 1 */
-  i32 p_dim = grid_dimensions + 1;
+  i32 dim = grid_dimensions;
+  f32 range = (f32)dim - 2.0f;
 
-  for (z = 0; z < p_dim; ++z)
+  for (z = 0; z < dim; ++z)
   {
-    f32 wz = (((f32)z / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.z;
+    f32 norm_z = ((f32)z - 0.5f) / range;
+    f32 wz = (norm_z - 0.5f) * grid_total_size + grid_center.z;
 
-    for (y = 0; y < p_dim; ++y)
+    for (y = 0; y < dim; ++y)
     {
-      f32 wy = (((f32)y / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.y;
+      f32 norm_y = ((f32)y - 0.5f) / range;
+      f32 wy = (norm_y - 0.5f) * grid_total_size + grid_center.y;
 
-      for (x = 0; x < p_dim; ++x)
+      for (x = 0; x < dim; ++x)
       {
-        f32 wx = (((f32)x / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.x;
+        f32 norm_x = ((f32)x - 0.5f) / range;
+        f32 wx = (norm_x - 0.5f) * grid_total_size + grid_center.x;
 
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
         f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
@@ -2097,7 +2100,7 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         final_density = wy + 20.0f;
          */
 
-        grid[z * p_dim * p_dim + y * p_dim + x] = final_density;
+        grid[z * dim * dim + y * dim + x] = final_density;
       }
     }
   }
@@ -2364,8 +2367,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.iso_level = 0.0f; /* The "surface" is where density is 0 */
     ctx_lod0.density_grid = density_grid;
     ctx_lod0.buffer_indices = cell_indices;
-    ctx_lod0.lod_stride = 0;
-    ctx_lod0.transition_mask = ZAI_SURFACE_NETS_TRANSITION_MASK_NZ; /* Chunk 1 has higher LOD Chunk 2 at -Z direction */
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx_lod0.grid_total_size, ctx_lod0.grid_center);
@@ -2376,7 +2377,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ZAI_PROFILER_END(setup_surface_nets_mesh);
 
     /* Chunk 2 */
-    ctx_lod1.grid_dimensions = DIM;
+    ctx_lod1.grid_dimensions = 65;
     ctx_lod1.grid_total_size = 100.0f;
     ctx_lod1.grid_center.x = 0.0f;
     ctx_lod1.grid_center.y = 0.0f;
@@ -2384,11 +2385,9 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod1.iso_level = 0.0f;
     ctx_lod1.density_grid = density_grid_1;
     ctx_lod1.buffer_indices = cell_indices;
-    ctx_lod1.lod_stride = 1;
-    ctx_lod1.transition_mask = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid_1, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
+    initialize_density_grid(density_grid_1, 65, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
     ZAI_PROFILER_END(setup_density_grid_1);
 
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
