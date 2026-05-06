@@ -23,16 +23,7 @@ typedef struct zai_surface_nets_context
     f32 grid_total_size;  /* Grid total size spanning */
     zai_vec3 grid_center; /* Grid center position */
 
-    u8 transition_mask; /* Bits: 1=+X, 2=-X, 4=+Y, 8=-Y, 16=+Z, 32=-Z */
-
 } zai_surface_nets_context;
-
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PX (1 << 0) /* +X */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NX (1 << 1) /* -X */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PY (1 << 2) /* +Y */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NY (1 << 3) /* -Y */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_PZ (1 << 4) /* +Z */
-#define ZAI_SURFACE_NETS_TRANSITION_MASK_NZ (1 << 5) /* -Z */
 
 typedef struct zai_surface_nets_edge
 {
@@ -337,14 +328,17 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     i32 x, y, z, i;
     i32 v_count = 0;
     i32 idx_count = 0;
-
     i32 dim = ctx->grid_dimensions;
+    i32 dim2 = dim * dim;
 
-    i32 s_x = 1;
-    i32 s_y = dim;
-    i32 s_z = dim * dim;
+    f32 inv_dim_minus_one = 1.0f / (f32)(dim - 1);
 
     f32 iso = ctx->iso_level;
+
+    i32 stride = 1;
+    i32 s_x = stride;
+    i32 s_y = stride * dim;
+    i32 s_z = stride * dim2;
 
     f32 *density = ctx->density_grid;
     i32 *indices = ctx->buffer_indices;
@@ -353,25 +347,24 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
     static u8 corner_y[8] = {0, 0, 1, 1, 0, 0, 1, 1};
     static u8 corner_z[8] = {0, 0, 0, 0, 1, 1, 1, 1};
 
-    for (i = 0; i < dim * dim * dim; ++i)
+    for (i = 0; i < dim * dim2; ++i)
     {
         indices[i] = -1;
     }
 
-    for (z = 0; z < dim - 1; ++z)
+    for (z = 0; z < dim - stride; z += stride)
     {
-        for (y = 0; y < dim - 1; ++y)
+        for (y = 0; y < dim - stride; y += stride)
         {
-            i32 row_idx = (z * s_z) + (y * s_y);
+            i32 row_idx = (z * dim2) + (y * dim);
             f32 d_cache[4];
 
-            /* Sliding density cache */
             d_cache[0] = density[row_idx];
             d_cache[1] = density[row_idx + s_y];
             d_cache[2] = density[row_idx + s_z];
             d_cache[3] = density[row_idx + s_z + s_y];
 
-            for (x = 0; x < dim - 1; ++x)
+            for (x = 0; x < dim - stride; x += stride)
             {
                 i32 curr = row_idx + x;
                 i32 mask = 0;
@@ -379,16 +372,19 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 i32 intersections = 0;
                 zai_vec3 avg_pos;
                 zai_surface_nets_case *c;
-                f32 inv, total, sum_lo, sum_hi, sum_x0, sum_y0, mag_sq;
-                zai_vec3 n;
 
-                /* Left Face */
+                f32 inv;
+                f32 sum_lo, sum_hi, sum_x0, sum_y0, total;
+                zai_vec3 n;
+                f32 mag_sq;
+
+                /* Left face */
                 d[0] = d_cache[0];
                 d[2] = d_cache[1];
                 d[4] = d_cache[2];
                 d[6] = d_cache[3];
 
-                /* Right Face */
+                /* Right face */
                 d_cache[0] = density[curr + s_x];
                 d_cache[1] = density[curr + s_x + s_y];
                 d_cache[2] = density[curr + s_x + s_z];
@@ -399,8 +395,15 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                 d[5] = d_cache[2];
                 d[7] = d_cache[3];
 
-                mask = ((d[0] < iso) << 0) | ((d[1] < iso) << 1) | ((d[2] < iso) << 2) | ((d[3] < iso) << 3) |
-                       ((d[4] < iso) << 4) | ((d[5] < iso) << 5) | ((d[6] < iso) << 6) | ((d[7] < iso) << 7);
+                mask =
+                    ((d[0] < iso) << 0) |
+                    ((d[1] < iso) << 1) |
+                    ((d[2] < iso) << 2) |
+                    ((d[3] < iso) << 3) |
+                    ((d[4] < iso) << 4) |
+                    ((d[5] < iso) << 5) |
+                    ((d[6] < iso) << 6) |
+                    ((d[7] < iso) << 7);
 
                 if (mask == 0 || mask == 255)
                 {
@@ -408,7 +411,9 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     continue;
                 }
 
+                /* Vertex generation */
                 avg_pos.x = avg_pos.y = avg_pos.z = 0.0f;
+
                 c = &zai_surface_nets_lut[mask];
 
                 for (i = 0; i < c->edge_count; ++i)
@@ -422,9 +427,17 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     {
                         f32 t = (iso - d[i1]) / denom;
 
-                        avg_pos.x += (f32)x + (corner_x[i1] + t * (corner_x[i2] - corner_x[i1]));
-                        avg_pos.y += (f32)y + (corner_y[i1] + t * (corner_y[i2] - corner_y[i1]));
-                        avg_pos.z += (f32)z + (corner_z[i1] + t * (corner_z[i2] - corner_z[i1]));
+                        f32 x1 = (f32)corner_x[i1];
+                        f32 y1 = (f32)corner_y[i1];
+                        f32 z1 = (f32)corner_z[i1];
+
+                        f32 x2 = (f32)corner_x[i2];
+                        f32 y2 = (f32)corner_y[i2];
+                        f32 z2 = (f32)corner_z[i2];
+
+                        avg_pos.x += (f32)x + (f32)stride * (x1 + t * (x2 - x1));
+                        avg_pos.y += (f32)y + (f32)stride * (y1 + t * (y2 - y1));
+                        avg_pos.z += (f32)z + (f32)stride * (z1 + t * (z2 - z1));
 
                         intersections++;
                     }
@@ -438,28 +451,10 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
 
                 inv = 1.0f / (f32)intersections;
 
-                /* Positions */
-                {
-                    f32 local_x = avg_pos.x * inv;
-                    f32 local_y = avg_pos.y * inv;
-                    f32 local_z = avg_pos.z * inv;
+                out_vertices[v_count].position.x = ((avg_pos.x * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
+                out_vertices[v_count].position.y = ((avg_pos.y * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
+                out_vertices[v_count].position.z = ((avg_pos.z * inv * inv_dim_minus_one) - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
 
-                    f32 range;
-                    f32 norm_x;
-                    f32 norm_y;
-                    f32 norm_z;
-
-                    range = (f32)dim - 2.0f;
-                    norm_x = (local_x - 0.5f) / range;
-                    norm_y = (local_y - 0.5f) / range;
-                    norm_z = (local_z - 0.5f) / range;
-
-                    out_vertices[v_count].position.x = (norm_x - 0.5f) * ctx->grid_total_size + ctx->grid_center.x;
-                    out_vertices[v_count].position.y = (norm_y - 0.5f) * ctx->grid_total_size + ctx->grid_center.y;
-                    out_vertices[v_count].position.z = (norm_z - 0.5f) * ctx->grid_total_size + ctx->grid_center.z;
-                }
-
-                /* Normals */
                 sum_lo = d[0] + d[1] + d[2] + d[3];
                 sum_hi = d[4] + d[5] + d[6] + d[7];
                 sum_x0 = d[0] + d[2] + d[4] + d[6];
@@ -485,63 +480,105 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
                     out_vertices[v_count].normal.z = 0.0f;
                 }
 
-                indices[curr] = v_count++;
+                indices[curr] = v_count;
+                v_count++;
 
-                /* Quad Generation (Bridge to neighbors) */
-                if (x > 0 && y > 0 && z > 0)
+                /* Strided Indices Generation */
+                if (x >= stride && y >= stride && z >= stride)
                 {
-                    i32 d_below = (d[0] < iso);
-                    i32 v0 = indices[curr], v1, v2, v3;
+                    i32 d_below = (d[0] < iso); /* current index is d[0] */
+                    i32 v0, v1, v2, v3;
 
-                    /* X Edge */
+                    /* X-axis edge */
                     if (d_below != (d[1] < iso))
                     {
+                        v0 = indices[curr];
                         v1 = indices[curr - s_y];
                         v2 = indices[curr - s_y - s_z];
                         v3 = indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v1);
-                            out_indices[idx_count++] = (u32)(d_below ? v1 : v2);
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v3 : v2);
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v3);
+                            if (d_below)
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
+                            }
+                            else
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
+                            }
                         }
                     }
-                    /* Y Edge */
+
+                    /* Y-axis edge */
                     if (d_below != (d[2] < iso))
                     {
+                        v0 = indices[curr];
                         v1 = indices[curr - s_x];
                         v2 = indices[curr - s_x - s_z];
                         v3 = indices[curr - s_z];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v1 : v2);
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v1);
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v3);
-                            out_indices[idx_count++] = (u32)(d_below ? v3 : v2);
+                            if (d_below)
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
+                            }
+                            else
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
+                            }
                         }
                     }
-                    /* Z Edge */
+
+                    /* Z-axis edge */
                     if (d_below != (d[4] < iso))
                     {
+                        v0 = indices[curr];
                         v1 = indices[curr - s_x];
                         v2 = indices[curr - s_x - s_y];
                         v3 = indices[curr - s_y];
 
                         if (v0 >= 0 && v1 >= 0 && v2 >= 0 && v3 >= 0)
                         {
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v1);
-                            out_indices[idx_count++] = (u32)(d_below ? v1 : v2);
-                            out_indices[idx_count++] = (u32)v0;
-                            out_indices[idx_count++] = (u32)(d_below ? v3 : v2);
-                            out_indices[idx_count++] = (u32)(d_below ? v2 : v3);
+                            if (d_below)
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v3;
+                                out_indices[idx_count++] = (u32)v2;
+                            }
+                            else
+                            {
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v1;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v0;
+                                out_indices[idx_count++] = (u32)v2;
+                                out_indices[idx_count++] = (u32)v3;
+                            }
                         }
                     }
                 }

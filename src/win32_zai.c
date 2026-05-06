@@ -2071,27 +2071,29 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
   static f32 amplitude = 15.0f;
   static f32 lacunarity = 2.0f;
   static f32 gain = 0.5f;
+  static i32 seed = (i32)0xDEADBEEF;
   static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
   static i32 octaves = 6;
 
-  i32 dim = grid_dimensions;
-  f32 range = (f32)dim - 2.0f;
+  (void)seed;
+  (void)zai_noise_rotation;
 
-  for (z = 0; z < dim; ++z)
+  for (z = 0; z < grid_dimensions; ++z)
   {
-    f32 norm_z = ((f32)z - 0.5f) / range;
-    f32 wz = (norm_z - 0.5f) * grid_total_size + grid_center.z;
+    f32 wz = (((f32)z / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.z;
 
-    for (y = 0; y < dim; ++y)
+    for (y = 0; y < grid_dimensions; ++y)
     {
-      f32 norm_y = ((f32)y - 0.5f) / range;
-      f32 wy = (norm_y - 0.5f) * grid_total_size + grid_center.y;
+      f32 wy = (((f32)y / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.y;
 
-      for (x = 0; x < dim; ++x)
+      for (x = 0; x < grid_dimensions; ++x)
       {
-        f32 norm_x = ((f32)x - 0.5f) / range;
-        f32 wx = (norm_x - 0.5f) * grid_total_size + grid_center.x;
+        f32 wx = (((f32)x / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.x;
 
+        /* f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
+        /* f32 noise_val = zai_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain, seed); */
+        /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
+        /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
         f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
         f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
         f32 final_density = (noise_val * amplitude) + offset;
@@ -2100,12 +2102,32 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
         final_density = wy + 20.0f;
          */
 
-        grid[z * dim * dim + y * dim + x] = final_density;
+        /*
+        f32 density = zai_sinf(wx * scale) +
+                      zai_sinf(wy * scale) +
+                      zai_sinf(wz * scale);
+
+        density += zai_sinf(wx * scale * 2.1f) * 0.5f;
+        density += zai_sinf(wy * scale * 2.1f) * 0.5f;
+        density += zai_sinf(wz * scale * 2.1f) * 0.5f;
+        */
+
+        /*
+        if (x == 0 || x == dim - 1 || y == 0 || y == dim - 1 || z == 0 || z == dim - 1)
+        {
+          final_density = 1.0f;
+        }
+        else
+        {
+          final_density = (noise_val * amplitude);
+        }
+        */
+
+        grid[z * grid_dimensions * grid_dimensions + y * grid_dimensions + x] = final_density;
       }
     }
   }
 }
-
 #define DIM 129
 #define MAX_TRIANGLES (DIM * DIM * DIM * 5)
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
@@ -2130,9 +2152,10 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
   if (!marching_cubes_initialized)
   {
     ZAI_PROFILER_BEGIN(setup_marching_cubes);
+
     camera = zai_camera_init();
-    camera.position.y = 10.0f;
-    camera.position.z = 85.0f;
+    camera.position.y = 20.0f;
+    camera.position.z = 80.0f;
 
     zai_noise_seed(0xDEADBEEF); /* 1234 */
 
@@ -2151,6 +2174,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
       if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
       {
+        marching_cubes_shader.loc_iResolution = glGetUniformLocation(marching_cubes_shader.header.program, "iResolution");
         marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
 
         if (marching_cubes_shader.loc_mvp < 0)
@@ -2175,7 +2199,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx.chunk_coord.y = 0.0f;
     ctx.chunk_coord.z = 0.0f;
     ctx.density_grid = density_grid;
-    ctx.transition_mask = ZAI_MARCHING_CUBES_TRANSITION_MASK_NZ;
+    ctx.transition_mask = 0;
     ctx.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid);
@@ -2205,7 +2229,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
     ctx_1.chunk_coord.z = -100.0f;
     ctx_1.density_grid = density_grid;
     ctx_1.transition_mask = 0;
-    ctx_1.lod_level = 1;
+    ctx_1.lod_level = 0;
 
     ZAI_PROFILER_BEGIN(setup_density_grid_1);
     initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord);
@@ -2255,6 +2279,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
       glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
       glUseProgram(marching_cubes_shader.header.program);
       glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+      glUniform3f(marching_cubes_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
 
       glBindVertexArray(vao);
       glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
@@ -2310,10 +2335,17 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
   if (!surface_nets_initialized)
   {
     f32 *density_grid;
-    f32 *density_grid_1;
     i32 *cell_indices; /* Required for vertex lookup */
 
     ZAI_PROFILER_BEGIN(setup_surface_nets);
+
+    density_grid = VirtualAlloc(0, DIM * DIM * DIM * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    cell_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 
     camera = zai_camera_init();
     camera.position.y = 20.0f;
@@ -2348,16 +2380,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       }
     }
 
-    /* Memory Setup for chunks */
-    density_grid = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    density_grid_1 = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    cell_indices = VirtualAlloc(0, (DIM + 1) * (DIM + 1) * (DIM + 1) * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    temp_verts = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_verts_1 = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices_1 = VirtualAlloc(0, 2 * DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
     /* Chunk 1 */
     ctx_lod0.grid_dimensions = DIM;
     ctx_lod0.grid_total_size = 100.0f; /* Total world-space size of the chunk */
@@ -2368,6 +2390,21 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ctx_lod0.density_grid = density_grid;
     ctx_lod0.buffer_indices = cell_indices;
 
+    /* Chunk 2 */
+    {
+      f32 cell_size = ctx_lod0.grid_total_size / (f32)(DIM - 1);
+      f32 mesh_stride = ctx_lod0.grid_total_size - cell_size;
+
+      ctx_lod1.grid_dimensions = DIM;
+      ctx_lod1.grid_total_size = 100.0f;
+      ctx_lod1.grid_center.x = 0.0f;
+      ctx_lod1.grid_center.y = 0.0f;
+      ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - mesh_stride;
+      ctx_lod1.iso_level = 0.0f;
+      ctx_lod1.density_grid = density_grid;
+      ctx_lod1.buffer_indices = cell_indices;
+    }
+
     ZAI_PROFILER_BEGIN(setup_density_grid);
     initialize_density_grid(density_grid, DIM, ctx_lod0.grid_total_size, ctx_lod0.grid_center);
     ZAI_PROFILER_END(setup_density_grid);
@@ -2375,24 +2412,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
     zai_surface_nets_generate(&ctx_lod0, temp_verts, &vertex_count, temp_indices, &index_count);
     ZAI_PROFILER_END(setup_surface_nets_mesh);
-
-    /* Chunk 2 */
-    ctx_lod1.grid_dimensions = 65;
-    ctx_lod1.grid_total_size = 100.0f;
-    ctx_lod1.grid_center.x = 0.0f;
-    ctx_lod1.grid_center.y = 0.0f;
-    ctx_lod1.grid_center.z = ctx_lod0.grid_center.z - ctx_lod0.grid_total_size;
-    ctx_lod1.iso_level = 0.0f;
-    ctx_lod1.density_grid = density_grid_1;
-    ctx_lod1.buffer_indices = cell_indices;
-
-    ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid_1, 65, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
-    ZAI_PROFILER_END(setup_density_grid_1);
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
-    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
-    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao);
@@ -2413,6 +2432,14 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
     /* Normal: Attribute 1 */
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
     glEnableVertexAttribArray(1);
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid, DIM, ctx_lod1.grid_total_size, ctx_lod1.grid_center);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
+    zai_surface_nets_generate(&ctx_lod1, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
+    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
 
     /* OpenGL Buffer Setup */
     glGenVertexArrays(1, &vao_1);
@@ -2892,8 +2919,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
       /*zai_render_grid(&state, &main_shader, main_vao);*/
       /*zai_render_terrain(&state);*/
-      /*zai_render_marching_cubes(&state);*/
-      zai_render_surface_nets(&state);
+      zai_render_marching_cubes(&state);
+      /*zai_render_surface_nets(&state);*/
       zai_render_ui(&state);
 
       (void)zai_render_grid;
