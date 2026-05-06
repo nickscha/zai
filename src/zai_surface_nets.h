@@ -358,9 +358,9 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
         indices[i] = -1;
     }
 
-    for (z = 0; z < dim - 1; z++)
+    for (z = 0; z < dim - 1; ++z)
     {
-        for (y = 0; y < dim - 1; y++)
+        for (y = 0; y < dim - 1; ++y)
         {
             i32 row_idx = (z * s_z) + (y * s_y);
             f32 d_cache[4];
@@ -371,7 +371,7 @@ ZAI_API ZAI_INLINE void zai_surface_nets_generate(
             d_cache[2] = density[row_idx + s_z];
             d_cache[3] = density[row_idx + s_z + s_y];
 
-            for (x = 0; x < dim - 1; x++)
+            for (x = 0; x < dim - 1; ++x)
             {
                 i32 curr = row_idx + x;
                 i32 mask = 0;
