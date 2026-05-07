@@ -1801,7 +1801,7 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
  * # [SECTION] Clipmap Terrain
  * #############################################################################
  */
-#define GRID_RES 65 /* 65 */
+#define GRID_RES 129 /* 65 */
 #define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
@@ -2020,10 +2020,10 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       wireframe_enabled = !wireframe_enabled;
     }
 
-    zai_update_camera_movement(state, &camera, 4000.0f);
+    zai_update_camera_movement(state, &camera, 100.0f);
 
     {
-      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 10000.0f);
       zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
@@ -2918,8 +2918,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       /*zai_render_grid(&state, &main_shader, main_vao);*/
-      /*zai_render_terrain(&state);*/
-      zai_render_marching_cubes(&state);
+      zai_render_terrain(&state);
+      /*zai_render_marching_cubes(&state);*/
       /*zai_render_surface_nets(&state);*/
       zai_render_ui(&state);
 

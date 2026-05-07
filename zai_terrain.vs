@@ -5,138 +5,111 @@ uniform vec3  iCamera;
 uniform float iBaseScale;
 uniform mat4  MVP;
 
-out float vLod;
-out float vHeight;
-out vec3  vTangent;
-out vec3  vBitangent;
 out vec3  vNormal;
 out vec3  vWorldPos;
+out float vDepth;
 
-/* configuration */
-#define TERRAIN_FREQ 2000.0   // Higher = larger features (stretched out)
-#define TERRAIN_HEIGHT 1200.0 // Vertical scale factor
-#define TERRAIN_OFFSET 400.0  // Vertical shift (base altitude)
-#define CLIFF_STRENGTH 120.0  // Height of the cliff step
-#define CLIFF_MIN 152.0       // Start height of the cliff
-#define CLIFF_MAX 294.0       // End height of the cliff
-
-float hash1( vec2 p ) 
+float hash(vec2 p)
 {
-    p  = 50.0 * fract( p * 0.3183099 );
-    return fract( p.x * p.y * (p.x + p.y) );
+    // IQ-style fractal hash
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 34.345);
+    return fract(p.x * p.y);
 }
 
-/* value noise with derivatives */
-vec3 noised( in vec2 x )
+// Smooth interpolation curve (IQ classic)
+vec2 fade(vec2 t)
 {
-    vec2 p = floor(x);
-    vec2 w = fract(x);
-
-    vec2 u = w*w*w*(w*(w*6.0-15.0)+10.0);
-    vec2 du = 30.0*w*w*(w*(w-2.0)+1.0); 
-    
-    float a = hash1(p + vec2(0,0));
-    float b = hash1(p + vec2(1,0));
-    float c = hash1(p + vec2(0,1));
-    float d = hash1(p + vec2(1,1));
-
-    float k0 = a;
-    float k1 = b - a;
-    float k2 = c - a;
-    float k3 = a - b - c + d;
-
-    float val = k0 + k1*u.x + k2*u.y + k3*u.x*u.y;
-    vec2 der = du * vec2(k1 + k3*u.y, k2 + k3*u.x);
-    
-    return vec3(-1.0 + 2.0 * val, 2.0 * der); 
+    return t * t * (3.0 - 2.0 * t);
 }
 
-const mat2 m2 = mat2(0.80, 0.60, -0.60, 0.80);
-
-vec3 fbm_9d( in vec2 x ) 
+// 2D value noise
+float valueNoise(vec2 p)
 {
-    float f = 1.9;
-    float s = 0.55;
-    float a = 0.0;
-    float b = 0.5;
-    vec2  d = vec2(0.0); 
+    vec2 i = floor(p);
+    vec2 f = fract(p);
 
-    for(int i=0; i<9; ++i) 
+    // four corners
+    float a = hash(i + vec2(0.0, 0.0));
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+
+    // smooth interpolation
+    vec2 u = fade(f);
+
+    return mix(a, b, u.x)
+         + (c - a) * u.y * (1.0 - u.x)
+         + (d - b) * u.x * u.y;
+}
+
+
+float fbm(vec2 p)
+{
+    float value = 0.0;
+    float amp = 0.5;
+
+    mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+
+    for (int i = 0; i < 5; i++)
     {
-
-        vec3 n = noised(x);
-        a += b * n.x;          
-        d += b * m2 * n.yz;      
-        b *= s;
-        x = f * m2 * x;
-
+        value += amp * valueNoise(p);
+        p = m * p;
+        amp *= 0.5;
     }
 
-    return vec3(a, d);
+    return value;
+}
+
+float getHeightStable(vec2 anchor, vec2 local)
+{   
+    float h = fbm((anchor + local) * 0.001); 
+    
+    return h * 800.0;
 }
 
 void main() {
     int lod = gl_InstanceID;
 
-    /* Fix Gaps */
+    /* LOD inner ring discard */
     if (lod > 0)
-    {
-        float inner = 0.28125; 
-        float outer = 0.71875; 
+    {   
+        /* exact quarter point: 16/64 (grid is 65x65 so 64x64 quads */ 
+        //const float inner = 0.28125; /* 18/64 = move cut line by 2 vertices */
+        //const float outer = 0.71875; /* 46/64 = move cut line by 2 vertices from other side */
+
+        const float inner = 0.265625;  // 34 / 128
+        const float outer = 0.734375;  // 94 / 128
 
         if (uv.x > inner && uv.x < outer && uv.y > inner && uv.y < outer) 
         {
-            gl_Position = vec4(0.0, 0.0, 2.0, 0.0); return;
+            gl_Position = vec4(0.0, 0.0, 2.0, 0.0); 
+            return;
         }
     }
 
     float scale = iBaseScale * exp2(float(lod));
-    float spacing = scale / 64.0;  /* 64.0; */ 
-    vec2 worldXZ = iCamera.xz + (uv - 0.5) * scale;
+    float spacing = scale / iBaseScale;
+
+    vec2 snappedCam = floor(iCamera.xz / (spacing * 2.0)) * (spacing * 2.0);
+
+    vec2 localPos = (uv - 0.5) * scale;
+    vec2 worldXZ = snappedCam + localPos;
+
+    float height = getHeightStable(snappedCam, localPos);
     
+    float hx = getHeightStable(snappedCam, localPos + vec2(spacing, 0.0));
+    float hz = getHeightStable(snappedCam, localPos + vec2(0.0, spacing));
 
-    // --- MORPH LOGIC ---
-    vec2 fractal_uv = abs(uv - 0.5) * 2.0;
-    float max_dist = max(fractal_uv.x, fractal_uv.y);
-    // Increased the morph range slightly (0.6 to 1.0) for a softer transition
-    float morph = smoothstep(0.6, 1.0, max_dist);
+    vec3 N = normalize(vec3(height - hx, spacing, height - hz));
 
-    // Grid Snapping
-    vec2 snapped_fine = floor(worldXZ / spacing) * spacing;
-    
-    float next_spacing = spacing * 2.0;
-    vec2 snapped_coarse = floor(worldXZ / next_spacing) * next_spacing;
+    vNormal = N;
 
-    // --- 1. MORPH THE COORDINATES ---
-    // This is the "secret sauce". We slide the vertex position itself.
-    vec2 finalXZ = mix(snapped_fine, snapped_coarse, morph);
+    //float lodBias = float(10 - lod) * 0.1;
+    //vWorldPos = vec3(worldXZ.x, height + lodBias, worldXZ.y);
 
-    // --- 2. ANALYTIC HEIGHT & NORMAL ---
-    // We sample heights at the SNAPPED positions to keep them locked to the grid
-    vec3 res_fine = fbm_9d(snapped_fine / TERRAIN_FREQ + vec2(1.0, -2.0));
-    float h_fine = res_fine.x * TERRAIN_HEIGHT + TERRAIN_OFFSET;
-    h_fine += CLIFF_STRENGTH * smoothstep(CLIFF_MIN, CLIFF_MAX, h_fine);
-    
-    vec2 grad_fine = res_fine.yz * (TERRAIN_HEIGHT / TERRAIN_FREQ);
-    
-    // Always calculate coarse for the blend to ensure no jumps
-    vec3 res_coarse = fbm_9d(snapped_coarse / TERRAIN_FREQ + vec2(1.0, -2.0));
-    float h_coarse = res_coarse.x * TERRAIN_HEIGHT + TERRAIN_OFFSET;
-    h_coarse += CLIFF_STRENGTH * smoothstep(CLIFF_MIN, CLIFF_MAX, h_coarse);
-    vec2 grad_coarse = res_coarse.yz * (TERRAIN_HEIGHT / TERRAIN_FREQ);
+    vWorldPos = vec3(worldXZ.x, height, worldXZ.y);
 
-    /* blend */
-    vec2 grad = mix(grad_fine, grad_coarse, morph);
-    
-    vec3 up = vec3(0.0, 1.0, 0.0);
-    vec3 normal = normalize(vec3(-grad.x, 1.0, -grad.y));
-
-    vLod = float(lod);
-    vHeight = mix(h_fine, h_coarse, morph);
-    vTangent = normalize(vec3(1.0, grad.x, 0.0));
-    vBitangent = normalize(vec3(0.0, grad.y, 1.0));
-    /* vBitangent = normalize(cross(normal, vTangent)); */
-    vNormal = normalize(vec3(-grad.x, 1.0, -grad.y));
-    vWorldPos = vec4(finalXZ.x, vHeight, finalXZ.y, 1.0).xyz;
     gl_Position = MVP * vec4(vWorldPos, 1.0);
+    vDepth = gl_Position.w;
 }
