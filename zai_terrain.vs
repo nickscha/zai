@@ -8,64 +8,67 @@ uniform mat4  MVP;
 out vec3  vNormal;
 out vec3  vWorldPos;
 out float vDepth;
+out float vHeight;
+out vec2 vUV;
 
-float hash(vec2 p)
-{
-    // IQ-style fractal hash
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 34.345);
-    return fract(p.x * p.y);
+vec2 hash( vec2 p ) {
+    p = vec2( dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)) );
+	return -1.0 + 2.0*fract(sin(p)*43758.5453123);
 }
 
-// Smooth interpolation curve (IQ classic)
-vec2 fade(vec2 t)
-{
-    return t * t * (3.0 - 2.0 * t);
-}
-
-// 2D value noise
-float valueNoise(vec2 p)
-{
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-
-    // four corners
-    float a = hash(i + vec2(0.0, 0.0));
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-
-    // smooth interpolation
-    vec2 u = fade(f);
-
-    return mix(a, b, u.x)
-         + (c - a) * u.y * (1.0 - u.x)
-         + (d - b) * u.x * u.y;
-}
-
-
-float fbm(vec2 p)
-{
-    float value = 0.0;
-    float amp = 0.5;
-
-    mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
-
-    for (int i = 0; i < 5; i++)
-    {
-        value += amp * valueNoise(p);
-        p = m * p;
-        amp *= 0.5;
-    }
-
-    return value;
-}
-
-float getHeightStable(vec2 anchor, vec2 local)
-{   
-    float h = fbm((anchor + local) * 0.001); 
+vec3 noised( in vec2 p ) {
+    vec2 i = floor( p );
+    vec2 f = fract( p );
+    vec2 u = f*f*f*(f*(f*6.0-15.0)+10.0);
+    vec2 du = 30.0*f*f*(f*(f-2.0)+1.0);
     
-    return h * 800.0;
+    float a = hash(i + vec2(0,0)).x;
+    float b = hash(i + vec2(1,0)).x;
+    float c = hash(i + vec2(0,1)).x;
+    float d = hash(i + vec2(1,1)).x;
+
+    float k0 = a;
+    float k1 = b - a;
+    float k2 = c - a;
+    float k3 = a - b - c + d;
+
+    return vec3(k0 + k1*u.x + k2*u.y + k3*u.x*u.y, 
+            du * vec2(k1 + k3*u.y, k2 + k3*u.x));
+}
+
+vec3 fbm_9( vec2 p ) {
+    float f = 0.0;
+    vec2  d = vec2(0.0);
+    float a = 0.5;
+    mat2  m = mat2(1.6, 1.2, -1.2, 1.6);
+    for( int i=0; i<9; i++ ) {
+        vec3 n = noised(p);
+        f += a * n.x;
+        d += a * n.yz;
+        a *= 0.5;
+        p = m * p;
+    }
+    return vec3(f, d);
+}
+
+vec3 terrainMap( vec2 p ) {
+    vec3 n = fbm_9( p / 2000.0 + vec2(1.0, -2.0) );
+    
+    float e = n.x;
+    vec2 de = n.yz / 2000.0; 
+
+    float h = 600.0 * e + 600.0;
+    vec2 dh = 600.0 * de;
+
+    float cliff_input = h; 
+    float t = clamp((cliff_input - 552.0) / (594.0 - 552.0), 0.0, 1.0);
+    float cliff_weight = t * t * (3.0 - 2.0 * t);
+    float d_cliff_weight = 6.0 * t * (1.0 - t) / (594.0 - 552.0);
+
+    float finalH = h + 90.0 * cliff_weight;
+    vec2 finalDH = dh + 90.0 * d_cliff_weight * dh;
+
+    return vec3(finalH, finalDH);
 }
 
 void main() {
@@ -74,10 +77,6 @@ void main() {
     /* LOD inner ring discard */
     if (lod > 0)
     {   
-        /* exact quarter point: 16/64 (grid is 65x65 so 64x64 quads */ 
-        //const float inner = 0.28125; /* 18/64 = move cut line by 2 vertices */
-        //const float outer = 0.71875; /* 46/64 = move cut line by 2 vertices from other side */
-
         const float inner = 0.265625;  // 34 / 128
         const float outer = 0.734375;  // 94 / 128
 
@@ -96,20 +95,15 @@ void main() {
     vec2 localPos = (uv - 0.5) * scale;
     vec2 worldXZ = snappedCam + localPos;
 
-    float height = getHeightStable(snappedCam, localPos);
+    vec3 terrain = terrainMap(worldXZ);
     
-    float hx = getHeightStable(snappedCam, localPos + vec2(spacing, 0.0));
-    float hz = getHeightStable(snappedCam, localPos + vec2(0.0, spacing));
+    float height = terrain.x;
+    vec2 slope = terrain.yz;
 
-    vec3 N = normalize(vec3(height - hx, spacing, height - hz));
-
-    vNormal = N;
-
-    //float lodBias = float(10 - lod) * 0.1;
-    //vWorldPos = vec3(worldXZ.x, height + lodBias, worldXZ.y);
-
+    // Compute Normal: cross product of tangent vectors simplified
+    vNormal = normalize(vec3(-slope.x, 1.0, -slope.y));
     vWorldPos = vec3(worldXZ.x, height, worldXZ.y);
-
     gl_Position = MVP * vec4(vWorldPos, 1.0);
     vDepth = gl_Position.w;
+    vUV = worldXZ * 0.04;
 }

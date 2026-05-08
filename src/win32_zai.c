@@ -1834,7 +1834,8 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     ZAI_PROFILER_BEGIN(setup_terrain);
 
     camera = zai_camera_init();
-    camera.position.y = 50.0f;
+    camera.position.y = 500.0f;
+    camera.position.z = 6.0f;
 
     state->terrain_lod_count = 10;
     state->terrain_base_scale = 128;
