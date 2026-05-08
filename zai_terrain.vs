@@ -1,7 +1,9 @@
 #version 330 core
 layout(location=0) in vec2 uv;
 
+uniform vec3  iResolution;
 uniform vec3  iCamera;
+uniform vec3  iViewDir; // camera forward normalized vector
 uniform float iBaseScale;
 uniform mat4  MVP;
 
@@ -9,7 +11,6 @@ out vec3  vNormal;
 out vec3  vWorldPos;
 out float vDepth;
 out float vHeight;
-out vec2 vUV;
 
 vec2 hash( vec2 p ) {
     p = vec2( dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)) );
@@ -73,37 +74,44 @@ vec3 terrainMap( vec2 p ) {
 
 void main() {
     int lod = gl_InstanceID;
-
-    /* LOD inner ring discard */
-    if (lod > 0)
-    {   
-        const float inner = 0.265625;  // 34 / 128
-        const float outer = 0.734375;  // 94 / 128
-
-        if (uv.x > inner && uv.x < outer && uv.y > inner && uv.y < outer) 
-        {
-            gl_Position = vec4(0.0, 0.0, 2.0, 0.0); 
-            return;
-        }
-    }
-
+    
     float scale = iBaseScale * exp2(float(lod));
     float spacing = scale / iBaseScale;
 
-    vec2 snappedCam = floor(iCamera.xz / (spacing * 2.0)) * (spacing * 2.0);
+    float biasFactor = 0.95; 
+    
+    vec3 camTerrain = terrainMap(iCamera.xz);
+    float heightAboveGround = max(0.0, iCamera.y - camTerrain.x);
+    float biasWeight = clamp(1.0 - (heightAboveGround / 600.0), 0.0, 1.0);
+    
+    vec2 forwardBias = iViewDir.xz * (scale * biasFactor) * biasWeight;
+
+    vec2 posToSnap = iCamera.xz + forwardBias;
+    vec2 snappedCam = floor(posToSnap / (spacing * 2.0)) * (spacing * 2.0);
 
     vec2 localPos = (uv - 0.5) * scale;
     vec2 worldXZ = snappedCam + localPos;
 
-    vec3 terrain = terrainMap(worldXZ);
-    
-    float height = terrain.x;
-    vec2 slope = terrain.yz;
+    if (lod > 0) {
+        float prevScale = iBaseScale * exp2(float(lod - 1));
+        
+        vec2 prevForwardBias = iViewDir.xz * (prevScale * biasFactor) * biasWeight;
+        vec2 prevSnappedCam = floor((iCamera.xz + prevForwardBias) / (spacing)) * (spacing);
+        
+        vec2 diff = abs(worldXZ - prevSnappedCam);
+        float innerHalfSize = prevScale * 0.5;
 
-    // Compute Normal: cross product of tangent vectors simplified
-    vNormal = normalize(vec3(-slope.x, 1.0, -slope.y));
-    vWorldPos = vec3(worldXZ.x, height, worldXZ.y);
+        if (diff.x < innerHalfSize - spacing && diff.y < innerHalfSize - spacing) {
+            gl_Position = vec4(0.0, 0.0, 2.0, 0.0);
+            return;
+        }
+    }
+
+    vec3 terrain = terrainMap(worldXZ);
+
+    vWorldPos = vec3(worldXZ.x, terrain.x, worldXZ.y);
+    vNormal = normalize(vec3(-terrain.y, 1.0, -terrain.z));
+    vHeight = terrain.x;
     gl_Position = MVP * vec4(vWorldPos, 1.0);
     vDepth = gl_Position.w;
-    vUV = worldXZ * 0.04;
 }

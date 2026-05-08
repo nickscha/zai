@@ -890,6 +890,7 @@ typedef struct shader_terrain
 
   i32 loc_iResolution;
   i32 loc_camera;
+  i32 loc_camera_view_dir;
   i32 loc_base_scale;
   i32 loc_mvp;
   i32 loc_texture_diffuse;
@@ -1850,6 +1851,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
     {
       terrain_shader.loc_iResolution = glGetUniformLocation(terrain_shader.header.program, "iResolution");
       terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "iCamera");
+      terrain_shader.loc_camera_view_dir = glGetUniformLocation(terrain_shader.header.program, "iViewDir");
       terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "iBaseScale");
       terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "MVP");
       terrain_shader.loc_texture_diffuse = glGetUniformLocation(terrain_shader.header.program, "tex_diffuse");
@@ -2034,6 +2036,8 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glUseProgram(terrain_shader.header.program);
       glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
+      glUniform3f(terrain_shader.loc_camera_view_dir, camera.front.x, camera.front.y, camera.front.z);
+
       glUniform1f(terrain_shader.loc_base_scale, (f32)state->terrain_base_scale);
       glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
       glBindVertexArray(terrain_vao);
