@@ -41,7 +41,7 @@ Download the latest Windows executable for **X64** or **ARM** from the **Latest 
 ### Building From Source
 
 Clone the repository and build manually.
-Either GCC or Clang is required to run the build script.
+Either GCC or Clang and LLD linker is required to run the build script.
 
 ```bash
 git clone https://github.com/nickscha/zai.git
