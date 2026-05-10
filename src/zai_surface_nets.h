@@ -22,6 +22,7 @@ typedef struct zai_surface_nets_context
     i32 grid_dimensions;  /* Grid dimensions per axis */
     f32 grid_total_size;  /* Grid total size spanning */
     zai_vec3 grid_center; /* Grid center position */
+    i32 lod_stride;       /* 1, 2, 4, etc. */
 
 } zai_surface_nets_context;
 
