@@ -7,31 +7,134 @@
  * # [SECTION] Platform Input
  * #############################################################################
  */
-#define ZAI_INPUT_KEYS_COUNT 256
+typedef enum zai_platform_input_mouse_keys
+{
+    /* basic mouse keys */
+    ZAI_MOUSE_KEY_LEFT,
+    ZAI_MOUSE_KEY_MIDDLE,
+    ZAI_MOUSE_KEY_RIGHT,
+
+    /* padding */
+    ZAI_MOUSE_KEY_UNUSED1,
+    ZAI_MOUSE_KEY_UNUSED2,
+    ZAI_MOUSE_KEY_UNUSED3,
+    ZAI_MOUSE_KEY_UNUSED4,
+    ZAI_MOUSE_KEY_UNUSED5,
+
+    ZAI_MOUSE_KEYS_COUNT
+
+} zai_platform_input_mouse_keys;
 
 typedef struct zai_platform_input_mouse
 {
-    i32 mouse_dx; /* Relative movement delta for x  */
-    i32 mouse_dy; /* Relative movement delta for y  */
-    i32 mouse_x;  /* Mouse position on screen for x */
-    i32 mouse_y;  /* Mouse position on screen for y */
-    f32 mouse_scroll;
-    u8 mouse_left_is_down;
-    u8 mouse_left_was_down;
-    u8 mouse_right_is_down;
-    u8 mouse_right_was_down;
+    i32 dx;     /* Relative movement delta for x  */
+    i32 dy;     /* Relative movement delta for y  */
+    i32 x;      /* Mouse position on screen for x */
+    i32 y;      /* Mouse position on screen for y */
+    f32 scroll; /* Mouse scroll wheel delta       */
+
+    u8 keys_is_down[ZAI_MOUSE_KEYS_COUNT];
+    u8 keys_was_down[ZAI_MOUSE_KEYS_COUNT];
 
 } zai_platform_input_mouse;
 
+typedef enum zai_platform_input_keyboard_keys
+{
+    /* numbers */
+    ZAI_KEYBOARD_KEY_0,
+    ZAI_KEYBOARD_KEY_1,
+    ZAI_KEYBOARD_KEY_2,
+    ZAI_KEYBOARD_KEY_3,
+    ZAI_KEYBOARD_KEY_4,
+    ZAI_KEYBOARD_KEY_5,
+    ZAI_KEYBOARD_KEY_6,
+    ZAI_KEYBOARD_KEY_7,
+    ZAI_KEYBOARD_KEY_8,
+    ZAI_KEYBOARD_KEY_9,
+
+    /* letters */
+    ZAI_KEYBOARD_KEY_A,
+    ZAI_KEYBOARD_KEY_B,
+    ZAI_KEYBOARD_KEY_C,
+    ZAI_KEYBOARD_KEY_D,
+    ZAI_KEYBOARD_KEY_E,
+    ZAI_KEYBOARD_KEY_F,
+    ZAI_KEYBOARD_KEY_G,
+    ZAI_KEYBOARD_KEY_H,
+    ZAI_KEYBOARD_KEY_I,
+    ZAI_KEYBOARD_KEY_J,
+    ZAI_KEYBOARD_KEY_K,
+    ZAI_KEYBOARD_KEY_L,
+    ZAI_KEYBOARD_KEY_M,
+    ZAI_KEYBOARD_KEY_N,
+    ZAI_KEYBOARD_KEY_O,
+    ZAI_KEYBOARD_KEY_P,
+    ZAI_KEYBOARD_KEY_Q,
+    ZAI_KEYBOARD_KEY_R,
+    ZAI_KEYBOARD_KEY_S,
+    ZAI_KEYBOARD_KEY_T,
+    ZAI_KEYBOARD_KEY_U,
+    ZAI_KEYBOARD_KEY_V,
+    ZAI_KEYBOARD_KEY_W,
+    ZAI_KEYBOARD_KEY_X,
+    ZAI_KEYBOARD_KEY_Y,
+    ZAI_KEYBOARD_KEY_Z,
+
+    /* function keys */
+    ZAI_KEYBOARD_KEY_F1,
+    ZAI_KEYBOARD_KEY_F2,
+    ZAI_KEYBOARD_KEY_F3,
+    ZAI_KEYBOARD_KEY_F4,
+    ZAI_KEYBOARD_KEY_F5,
+    ZAI_KEYBOARD_KEY_F6,
+    ZAI_KEYBOARD_KEY_F7,
+    ZAI_KEYBOARD_KEY_F8,
+    ZAI_KEYBOARD_KEY_F9,
+    ZAI_KEYBOARD_KEY_F10,
+    ZAI_KEYBOARD_KEY_F11,
+    ZAI_KEYBOARD_KEY_F12,
+
+    /* control keys */
+    ZAI_KEYBOARD_KEY_CONTROL,
+    ZAI_KEYBOARD_KEY_RETURN,
+    ZAI_KEYBOARD_KEY_SPACE,
+    ZAI_KEYBOARD_KEY_SHIFT,
+    ZAI_KEYBOARD_KEY_TAB,
+    ZAI_KEYBOARD_KEY_ALT,
+    ZAI_KEYBOARD_KEY_ESCAPE,
+
+    /* movement keys */
+    ZAI_KEYBOARD_KEY_LEFT,
+    ZAI_KEYBOARD_KEY_UP,
+    ZAI_KEYBOARD_KEY_RIGHT,
+    ZAI_KEYBOARD_KEY_DOWN,
+
+    /* padding */
+    ZAI_KEYBOARD_KEY_UNUSED1,
+    ZAI_KEYBOARD_KEY_UNUSED2,
+    ZAI_KEYBOARD_KEY_UNUSED3,
+    ZAI_KEYBOARD_KEY_UNUSED4,
+    ZAI_KEYBOARD_KEY_UNUSED5,
+
+    ZAI_KEYBORD_KEYS_COUNT
+
+} zai_platform_input_keyboard_keys;
+
+/*
+    Key Pressed:   keys_is_down[ZAI_KEYBOARD_KEY_A] && !keys_was_down[ZAI_KEYBOARD_KEY_A]
+    Key Released: !keys_is_down[ZAI_KEYBOARD_KEY_A] &&  keys_was_down[ZAI_KEYBOARD_KEY_A]
+*/
 typedef struct zai_platform_input_keyboard
 {
-    u8 keys_is_down[ZAI_INPUT_KEYS_COUNT];
-    u8 keys_was_down[ZAI_INPUT_KEYS_COUNT];
+    u8 keys_is_down[ZAI_KEYBORD_KEYS_COUNT];
+    u8 keys_was_down[ZAI_KEYBORD_KEYS_COUNT];
 
 } zai_platform_input_keyboard;
 
 typedef struct zai_platform_input_controller
 {
+    u8 connected;
+
     u8 button_a;
     u8 button_b;
     u8 button_x;
@@ -88,12 +191,14 @@ typedef struct zai_platform_window
 typedef u8 (*zai_platform_api_io_print)(s8 *string);
 typedef u8 (*zai_platform_api_io_file_size)(s8 *filename, u32 *file_size);
 typedef u8 (*zai_platform_api_io_file_read)(s8 *filename, u8 *buffer, u32 buffer_size);
+typedef u8 (*zai_platform_api_io_file_write)(s8 *filename, u8 *buffer, u32 buffer_size);
 
 typedef struct zai_platform_api
 {
     zai_platform_api_io_print io_print;
     zai_platform_api_io_file_size io_file_size;
     zai_platform_api_io_file_read io_file_read;
+    zai_platform_api_io_file_write io_file_write;
 
 } zai_platform_api;
 
@@ -101,7 +206,10 @@ typedef struct zai_platform_api
  * # [SECTION] Main entry point (zai_update)
  * #############################################################################
  */
-ZAI_API ZAI_INLINE u8 zai_update_stub(zai_platform_api *api, zai_platform_window *window, zai_platform_input *input)
+ZAI_API ZAI_INLINE u8 zai_update_stub(
+    zai_platform_api *api,
+    zai_platform_window *window,
+    zai_platform_input *input)
 {
     api->io_print("[zai][error] No 'zai_update' function has been set! Using 'zai_update_stub'!\n");
     api->io_print("[zai][error] Define the following function in your code:\n\n");
@@ -118,8 +226,8 @@ ZAI_API ZAI_INLINE u8 zai_update_stub(zai_platform_api *api, zai_platform_window
 }
 
 typedef u8 (*zai_update_function)(
-    zai_platform_api *api,       /* Platform provided functinos */
-    zai_platform_window *window, /* Platform window informatino */
+    zai_platform_api *api,       /* Platform provided functions */
+    zai_platform_window *window, /* Platform window information */
     zai_platform_input *input    /* Platform input */
 );
 
