@@ -2925,9 +2925,9 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       /*zai_render_grid(&state, &main_shader, main_vao);*/
-      /*zai_render_terrain(&state);*/
+      zai_render_terrain(&state);
       /*zai_render_marching_cubes(&state);*/
-      zai_render_surface_nets(&state);
+      /*zai_render_surface_nets(&state);*/
       zai_render_ui(&state);
 
       (void)zai_render_grid;

@@ -101,7 +101,7 @@ typedef struct zai_platform_api
  * # [SECTION] Main entry point (zai_update)
  * #############################################################################
  */
-u8 zai_update_stub(zai_platform_api *api, zai_platform_window *window, zai_platform_input *input)
+ZAI_API ZAI_INLINE u8 zai_update_stub(zai_platform_api *api, zai_platform_window *window, zai_platform_input *input)
 {
     api->io_print("[zai][error] No 'zai_update' function has been set! Using 'zai_update_stub'!\n");
     api->io_print("[zai][error] Define the following function in your code:\n\n");
@@ -111,6 +111,8 @@ u8 zai_update_stub(zai_platform_api *api, zai_platform_window *window, zai_platf
     window->window_clear_color_r = 1.0f;
     window->window_clear_color_g = 0.0f;
     window->window_clear_color_b = 0.0f;
+
+    (void)input;
 
     return 0;
 }
