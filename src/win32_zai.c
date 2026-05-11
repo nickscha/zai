@@ -2133,6 +2133,7 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
     }
   }
 }
+
 #define DIM 129
 #define MAX_TRIANGLES (DIM * DIM * DIM * 5)
 ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
@@ -2344,14 +2345,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     ZAI_PROFILER_BEGIN(setup_surface_nets);
 
-    density_grid = VirtualAlloc(0, DIM * DIM * DIM * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    cell_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
     camera = zai_camera_init();
     camera.position.y = 20.0f;
     camera.position.z = 80.0f;
@@ -2385,8 +2378,17 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
       }
     }
 
+    /* Memory allocation for chunks */
+    density_grid = VirtualAlloc(0, DIM * DIM * DIM * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    cell_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
     /* Chunk 1 */
-    chunk_1.grid_dimensions = DIM; /* 129 */
+    chunk_1.grid_dimensions = DIM;    /* 129 */
     chunk_1.grid_total_size = 100.0f; /* Total world-space size of the chunk */
     chunk_1.grid_center.x = 0.0f;
     chunk_1.grid_center.y = 0.0f;
