@@ -4,7 +4,7 @@
 #include "zai_types.h"
 
 /* #############################################################################
- * # [SECTION] Platform Input
+ * # [SECTION] Platform Mouse Input
  * #############################################################################
  */
 typedef enum zai_platform_input_mouse_keys
@@ -38,6 +38,10 @@ typedef struct zai_platform_input_mouse
 
 } zai_platform_input_mouse;
 
+/* #############################################################################
+ * # [SECTION] Platform Keyboard Input
+ * #############################################################################
+ */
 typedef enum zai_platform_input_keyboard_keys
 {
     /* numbers */
@@ -131,6 +135,10 @@ typedef struct zai_platform_input_keyboard
 
 } zai_platform_input_keyboard;
 
+/* #############################################################################
+ * # [SECTION] Platform Controller Input
+ * #############################################################################
+ */
 typedef struct zai_platform_input_controller
 {
     u8 connected;
@@ -160,6 +168,10 @@ typedef struct zai_platform_input_controller
 
 } zai_platform_input_controller;
 
+/* #############################################################################
+ * # [SECTION] Platform Input
+ * #############################################################################
+ */
 typedef struct zai_platform_input
 {
     zai_platform_input_mouse mouse;
@@ -174,13 +186,21 @@ typedef struct zai_platform_input
  */
 typedef struct zai_platform_window
 {
-    u32 window_width;
-    u32 window_height;
+    u8 size_changed;
+    u8 clear_color_changed;
+    u8 title_changed;
 
-    f32 window_clear_color_r;
-    f32 window_clear_color_g;
-    f32 window_clear_color_b;
-    f32 window_clear_color_a;
+    u8 minimized;
+
+    u32 width;
+    u32 height;
+
+    f32 clear_color_r;
+    f32 clear_color_g;
+    f32 clear_color_b;
+    f32 clear_color_a;
+
+    s8 *title;
 
 } zai_platform_window;
 
@@ -203,34 +223,73 @@ typedef struct zai_platform_api
 } zai_platform_api;
 
 /* #############################################################################
+ * # [SECTION] Platform Memory
+ * #############################################################################
+ */
+typedef struct zai_platform_memory
+{
+    u8 *data;
+    u32 size;
+    u32 length;
+
+} zai_platform_memory;
+
+/* #############################################################################
+ * # [SECTION] Platform Timing
+ * #############################################################################
+ */
+typedef struct zai_platform_timing
+{
+    i32 frame_count;       /* Frames processed count               */
+    f64 frame_rate;        /* Frame Rate per second                */
+    u32 frame_rate_target; /* Targeted Frame rate per second       */
+    f64 frame_rate_raw;    /* Frame Rate per second raw (no cap)   */
+    f64 time_elapsed;      /* Total elapsed time in seconds        */
+    f64 time_delta;        /* Current render frame time in seconds */
+
+} zai_platform_timing;
+
+/* #############################################################################
  * # [SECTION] Main entry point (zai_update)
  * #############################################################################
  */
-ZAI_API ZAI_INLINE u8 zai_update_stub(
-    zai_platform_api *api,
-    zai_platform_window *window,
-    zai_platform_input *input)
+typedef struct zai_platform_state
 {
-    api->io_print("[zai][error] No 'zai_update' function has been set! Using 'zai_update_stub'!\n");
-    api->io_print("[zai][error] Define the following function in your code:\n\n");
-    api->io_print("  u8 zai_update(zai_platform_api *api, zai_platform_window *window, zai_platform_input *input)\n  {\n  /* your code */\n  }\n\n");
-    api->io_print("[zai][error]\n");
+    zai_platform_api api;       /* Platform provided functions */
+    zai_platform_window window; /* Platform window information */
+    zai_platform_input input;   /* Platform input */
+    zai_platform_memory memory; /* Platform memory */
+    zai_platform_timing timing; /* Platform timing */
 
-    window->window_clear_color_r = 1.0f;
-    window->window_clear_color_g = 0.0f;
-    window->window_clear_color_b = 0.0f;
+    u8 running;
+    u8 application_initialized;
 
-    (void)input;
+} zai_platform_state;
 
-    return 0;
+#ifdef ZAI_APPLICATION
+void zai_update(zai_platform_state *platform_state);
+#else
+
+ZAI_API ZAI_INLINE void zai_update_stub(zai_platform_state *platform_state)
+{
+    platform_state->api.io_print("[zai][error] No 'zai_update' function has been set! Using 'zai_update_stub'!\n");
+    platform_state->api.io_print("[zai][error] Define the following function in your code:\n\n");
+    platform_state->api.io_print("  u8 zai_update(zai_platform_state *platform_state)\n  {\n    /* your code */\n  }\n\n");
+    platform_state->api.io_print("[zai][error]\n");
+
+    platform_state->window.clear_color_r = 0.9f;
+    platform_state->window.clear_color_g = 0.1f;
+    platform_state->window.clear_color_b = 0.1f;
+    platform_state->window.clear_color_changed = 1;
+
+    platform_state->window.title = "[zai][error] No 'zai_update' function has been set! Using 'zai_update_stub'!\n";
+    platform_state->window.title_changed = 1;
 }
 
-typedef u8 (*zai_update_function)(
-    zai_platform_api *api,       /* Platform provided functions */
-    zai_platform_window *window, /* Platform window information */
-    zai_platform_input *input    /* Platform input */
-);
+typedef void (*zai_update_function)(zai_platform_state *platform_state);
 
 static zai_update_function zai_update = zai_update_stub;
+
+#endif
 
 #endif /* ZAI_H */

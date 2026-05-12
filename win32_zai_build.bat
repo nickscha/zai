@@ -2,6 +2,7 @@
 REM Compiles the program without the C standard library
 
 set PLATFORM_NAME=win32_zai
+set APPLICATION_NAME=zai
 set ICON_DATA=win32_zai.res
 
 set DEF_COMPILER_FLAGS=-mwindows -march=native -mtune=native ^
@@ -12,5 +13,6 @@ set DEF_COMPILER_FLAGS=-mwindows -march=native -mtune=native ^
 
 set DEF_FLAGS_LINKER=-lkernel32 -luser32 -lgdi32
 
+cc -s -O2 -shared %DEF_COMPILER_FLAGS%  src/%APPLICATION_NAME%.c -o %APPLICATION_NAME%.dll
 cc -s -O2 %DEF_COMPILER_FLAGS% src/%PLATFORM_NAME%.c %ICON_DATA% -o %PLATFORM_NAME%.exe %DEF_FLAGS_LINKER%
 %PLATFORM_NAME%.exe

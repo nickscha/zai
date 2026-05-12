@@ -62,6 +62,8 @@ WIN32_ZAI_API_TYPES_STATIC_ASSERT(sizeof(i64) == 8, i64_size_must_be_8);
 
 #define WM_LBUTTONDOWN 0x0201
 #define WM_LBUTTONUP 0x0202
+#define WM_MBUTTONDOWN 0x0207
+#define WM_MBUTTONUP 0x0208
 #define WM_RBUTTONDOWN 0x0204
 #define WM_RBUTTONUP 0x0205
 
@@ -342,6 +344,7 @@ WIN32_API(void *) CreateFileA(s8 *lpFileName, u32 dwDesiredAccess, u32 dwShareMo
 WIN32_API(u32)    GetFileSize(void *hFile, u32 *lpFileSizeHigh);
 WIN32_API(i32)    ReadFile(void *hFile, void *lpBuffer, u32 nNumberOfBytesToRead, u32 *lpNumberOfBytesRead, void *lpOverlapped);
 WIN32_API(i32)    WriteFile(void *hFile, void *lpBuffer, u32 nNumberOfBytesToWrite, u32 *lpNumberOfBytesWritten, void *lpOverlapped);
+WIN32_API(i32)    CopyFileA(s8 *lpExistingFileName, s8 *lpNewFileName, i32 bFailIfExists);
 WIN32_API(i32)    CompareFileTime(FILETIME *lpFileTime1, FILETIME *lpFileTime2);
 WIN32_API(i32)    GetFileAttributesExA(s8 *lpFileName, u32 fInfoLevelId, void *lpFileInformation);
 WIN32_API(void)   Sleep(u32 dwMilliseconds);
@@ -382,6 +385,7 @@ WIN32_API(i32)    SetWindowLongA(void *hWnd, i32 nIndex, i32 dwNewLong);
 WIN32_API(i32)    SetWindowPos(void *hWnd, void *hWndInsertAfter, i32 X, i32 Y, i32 cx, i32 cy, u32 uFlags);
 WIN32_API(i32)    SetWindowPlacement(void *hWnd, WINDOWPLACEMENT *lpwndpl);
 WIN32_API(i32)    GetClientRect(void *hWnd, RECT* lpRect);
+WIN32_API(u8)     SetWindowTextA(void *hWnd, s8* lpString);
 
 WIN32_API(void *) GetCurrentProcess(void);
 WIN32_API(u32)    GetCurrentProcessId(void);

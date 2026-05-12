@@ -7,20 +7,11 @@ LICENSE
 
 */
 #include "zai_types.h"
+#include "zai.h"
 #include "zai_font.h"
 #include "zai_string_builder.h"
-#include "zai_camera.h"
-#include "zai_ui.h"
-#include "zai_color.h"
 #include "zai_profiler.h"
-#include "zai_marching_cubes.h"
-#include "zai_dual_contouring.h"
-#include "zai_surface_nets.h"
-#include "zai_noise.h"
-#include "zai_erosion.h"
 #include "zai_opengl.h"
-#include "zai_sdf_scene.h"
-#include "zai_sparse_grid.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
@@ -69,7 +60,7 @@ __declspec(dllexport) i32 AmdPowerXpressRequestHighPerformance = 1; /* AMD Force
  * # [SECTION] WIN32 specifiy functions
  * #############################################################################
  */
-ZAI_API void win32_print(s8 *str)
+ZAI_API u8 win32_print(s8 *str)
 {
   static u32 written;
   static void *log_file;
@@ -90,6 +81,8 @@ ZAI_API void win32_print(s8 *str)
 
     WriteFile(log_file, str, len, &written, 0);
   }
+
+  return 1;
 }
 
 ZAI_API u8 *win32_file_read(s8 *filename, u32 *file_size_out)
@@ -295,45 +288,6 @@ ZAI_API i32 win32_process_thread_count(void)
   return count;
 }
 
-typedef struct win32_controller_state
-{
-
-  u8 button_a;
-  u8 button_b;
-  u8 button_x;
-  u8 button_y;
-
-  u8 shoulder_left;
-  u8 shoulder_right;
-
-  u8 trigger_left;
-  u8 trigger_right;
-
-  u8 dpad_up;
-  u8 dpad_down;
-  u8 dpad_left;
-  u8 dpad_right;
-
-  u8 stick_left;
-  u8 stick_right;
-
-  u8 start;
-  u8 back;
-
-  f32 stick_left_x;
-  f32 stick_left_y;
-  f32 stick_right_x;
-  f32 stick_right_y;
-
-  f32 trigger_left_value;
-  f32 trigger_right_value;
-
-  u8 id; /* The XInput id associated with this controller */
-  u8 connected;
-  u8 check_needed; /* If a device is plugged in or disconnected we should check XInput controller state again */
-
-} win32_controller_state;
-
 typedef struct process_memory_info
 {
   u64 private_bytes; /* Commit charge (what you asked for) */
@@ -392,31 +346,24 @@ u8 win32_process_memory(process_memory_info *out)
   return 1;
 }
 
-#define KEYS_COUNT 256
+typedef struct win32_zai_application
+{
+  void *hDLL;
+  FILETIME lastWriteTime;
+  char *dllName;
+} win32_zai_application;
 
 typedef struct win32_zai_state
 {
+  win32_zai_application application;
 
-  u32 window_width;
-  u32 window_height;
+  zai_platform_state platform_state;
 
   u32 window_width_pending;
   u32 window_height_pending;
 
-  f32 window_clear_color_g;
-  f32 window_clear_color_b;
-  f32 window_clear_color_r;
-  f32 window_clear_color_a;
-
-  i32 iFrame;        /* Frames processed count               */
-  f64 iTime;         /* Total elapsed time in seconds        */
-  f64 iTimeDelta;    /* Current render frame time in seconds */
-  f64 iFrameRate;    /* Frame Rate per second                */
-  f64 iFrameRateRaw; /* Frame Rate per second raw (no cap)   */
-
-  u8 running;
-  u8 window_minimized;
-  u8 window_size_changed;
+  u8 controller_id;           /* The XInput id associated with this controller */
+  u8 controller_check_needed; /* If a device is plugged in or disconnected we should check XInput controller state again */
 
   u8 shader_paused;
   u8 ui_enabled;
@@ -425,56 +372,72 @@ typedef struct win32_zai_state
   u8 screen_recording_enabled;
   u8 screen_recording_initialized;
 
-  u32 target_frames_per_second;
-
-  s8 *window_title;
-
   void *window_handle;
   void *device_context;
-
-  /* Input state */
-  i32 mouse_dx; /* Relative movement delta for x  */
-  i32 mouse_dy; /* Relative movement delta for y  */
-  i32 mouse_x;  /* Mouse position on screen for x */
-  i32 mouse_y;  /* Mouse position on screen for y */
-  f32 mouse_scroll;
-  u8 mouse_left_is_down;
-  u8 mouse_left_was_down;
-  u8 mouse_right_is_down;
-  u8 mouse_right_was_down;
-
-  /* State Examples:
-    Key Pressed:  state.keys_is_down[0x0D] && !state.keys_was_down[0x0D]
-    Key Released: !state.keys_is_down[0x0D] && state.keys_was_down[0x0D]
-
-    Example of a Toggle switch (when pressed first toggles on, when pressed second time toggles off):
-
-    static u8 ui_enabled = 0;
-
-    if (state.keys_is_down[0x70] && !state.keys_was_down[0x70])
-    {
-      ui_enabled = !ui_enabled;
-    }
-  */
-  u8 keys_is_down[KEYS_COUNT];
-  u8 keys_was_down[KEYS_COUNT];
-
-  win32_controller_state controller;
 
   s8 *gl_version;
   s8 *gl_renderer;
   s8 *gl_vendor;
   i32 gl_max_3d_texture_size;
 
-  u32 mem_brick_map_bytes;
-  u32 mem_atlas_bytes;
-  u32 grid_active_brick_count;
-  zai_vec3 grid_atlas_dimensions;
-
-  i32 terrain_lod_count;
-  i32 terrain_base_scale;
-
 } win32_zai_state;
+
+ZAI_API ZAI_INLINE i32 win32_vk_to_zai_key(i32 vk)
+{
+  if (vk >= '0' && vk <= '9')
+  {
+    return ZAI_KEYBOARD_KEY_0 + (vk - '0');
+  }
+
+  if (vk >= 'A' && vk <= 'Z')
+  {
+    return ZAI_KEYBOARD_KEY_A + (vk - 'A');
+  }
+
+  /* function keys (f1 - f12) */
+  if (vk >= 0x70 && vk <= 0x7B)
+  {
+    return ZAI_KEYBOARD_KEY_F1 + (vk - 0x70);
+  }
+
+  switch (vk)
+  {
+  case 0x11:
+    return ZAI_KEYBOARD_KEY_CONTROL;
+
+  case 0x0D:
+    return ZAI_KEYBOARD_KEY_RETURN;
+
+  case 0x20:
+    return ZAI_KEYBOARD_KEY_SPACE;
+
+  case 0x10:
+    return ZAI_KEYBOARD_KEY_SHIFT;
+
+  case 0x09:
+    return ZAI_KEYBOARD_KEY_TAB;
+
+  case 0x12:
+    return ZAI_KEYBOARD_KEY_ALT;
+
+  case 0x1B:
+    return ZAI_KEYBOARD_KEY_ESCAPE;
+
+  case 0x25:
+    return ZAI_KEYBOARD_KEY_LEFT;
+
+  case 0x26:
+    return ZAI_KEYBOARD_KEY_UP;
+
+  case 0x27:
+    return ZAI_KEYBOARD_KEY_RIGHT;
+
+  case 0x28:
+    return ZAI_KEYBOARD_KEY_DOWN;
+  }
+
+  return -1;
+}
 
 ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wParam, i64 lParam)
 {
@@ -523,7 +486,7 @@ ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wPar
       break;
     }
 
-    state->running = 0;
+    state->platform_state.running = 0;
   }
   break;
   case WM_SIZE:
@@ -535,12 +498,12 @@ ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wPar
 
     if (wParam == SIZE_MINIMIZED)
     {
-      state->window_minimized = 1;
+      state->platform_state.window.minimized = 1;
     }
     else
     {
-      state->window_minimized = 0;
-      state->window_size_changed = 1;
+      state->platform_state.window.minimized = 0;
+      state->platform_state.window.size_changed = 1;
       state->window_width_pending = (u16)(((u64)(lParam)) & 0xffff);          /* Low Word  */
       state->window_height_pending = (u16)((((u64)(lParam)) >> 16) & 0xffff); /* High Word */
     }
@@ -572,10 +535,12 @@ ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wPar
 
       u16 vKey = keyboard->VKey;
 
-      if (vKey < KEYS_COUNT)
+      if (vKey < 256)
       {
         /*key->was_down = key->is_down;*/
-        state->keys_is_down[vKey] = !(keyboard->Flags & RI_KEY_BREAK); /* 1 if pressed, 0 if released */
+        i32 zai_key = win32_vk_to_zai_key(vKey);
+
+        state->platform_state.input.keyboard.keys_is_down[zai_key] = !(keyboard->Flags & RI_KEY_BREAK); /* 1 if pressed, 0 if released */
       }
     }
     else if (raw->header.dwType == RIM_TYPEMOUSE)
@@ -585,14 +550,14 @@ ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wPar
       i32 dx = mouse->lLastX;
       i32 dy = mouse->lLastY;
 
-      state->mouse_dx += dx;
-      state->mouse_dy -= dy;
+      state->platform_state.input.mouse.dx += dx;
+      state->platform_state.input.mouse.dy -= dy;
 
       /* Scroll wheel */
       if (mouse->usButtonFlags & RI_MOUSE_WHEEL)
       {
         i16 wheelDelta = (i16)mouse->usButtonData;
-        state->mouse_scroll += (f32)wheelDelta / (f32)WHEEL_DELTA;
+        state->platform_state.input.mouse.scroll += (f32)wheelDelta / (f32)WHEEL_DELTA;
       }
     }
   }
@@ -603,21 +568,27 @@ ZAI_API ZAI_INLINE i64 win32_window_callback(void *window, u32 message, u64 wPar
     /* DBT_DEVNODES_CHANGED is the most reliable for USB plugging/unplugging */
     if (wParam == DBT_DEVNODES_CHANGED || wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE)
     {
-      state->controller.check_needed = 1;
+      state->controller_check_needed = 1;
     }
   }
   break;
   case WM_LBUTTONDOWN:
-    state->mouse_left_is_down = 1;
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_LEFT] = 1;
     break;
   case WM_LBUTTONUP:
-    state->mouse_left_is_down = 0;
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_LEFT] = 0;
+    break;
+  case WM_MBUTTONDOWN:
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_MIDDLE] = 1;
+    break;
+  case WM_MBUTTONUP:
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_MIDDLE] = 0;
     break;
   case WM_RBUTTONDOWN:
-    state->mouse_right_is_down = 1;
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_RIGHT] = 1;
     break;
   case WM_RBUTTONUP:
-    state->mouse_right_is_down = 0;
+    state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_RIGHT] = 0;
     break;
   default:
   {
@@ -654,7 +625,7 @@ ZAI_API void win32_window_enter_fullscreen(win32_zai_state *state)
 
       state->window_width_pending = (u32)(mi.rcMonitor.right - mi.rcMonitor.left);
       state->window_height_pending = (u32)(mi.rcMonitor.bottom - mi.rcMonitor.top);
-      state->window_size_changed = 1;
+      state->platform_state.window.size_changed = 1;
     }
   }
 }
@@ -680,7 +651,7 @@ ZAI_API void win32_window_enter_borderless(win32_zai_state *state)
 
     state->window_width_pending = (u32)(mi.rcMonitor.right - mi.rcMonitor.left);
     state->window_height_pending = (u32)(mi.rcMonitor.bottom - mi.rcMonitor.top);
-    state->window_size_changed = 1;
+    state->platform_state.window.size_changed = 1;
   }
 }
 
@@ -699,18 +670,61 @@ ZAI_API void win32_window_enter_windowed(win32_zai_state *state)
 
     state->window_width_pending = (u32)(rect.right - rect.left);
     state->window_height_pending = (u32)(rect.bottom - rect.top);
-    state->window_size_changed = 1;
+    state->platform_state.window.size_changed = 1;
   }
   else
   {
     /* resize windowed mode */
     RECT rect = {0};
-    rect.right = (i32)state->window_width;
-    rect.bottom = (i32)state->window_height;
+    rect.right = (i32)state->platform_state.window.width;
+    rect.bottom = (i32)state->platform_state.window.height;
 
     AdjustWindowRect(&rect, (u32)GetWindowLongA(state->window_handle, GWL_STYLE), 0);
     SetWindowPos(state->window_handle, ZAI_NULL, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
   }
+}
+
+ZAI_API u8 win32_load_application(win32_zai_state *state)
+{
+  s8 *dllName = "zai.dll";
+  s8 *dllTempName = "zai_temp.dll";
+
+  win32_print("[win32] load application\n");
+
+  if (state->application.hDLL != ZAI_NULL)
+  {
+    if (!FreeLibrary(state->application.hDLL))
+    {
+      win32_print("[win32] cannot free library: ");
+      win32_print(dllTempName);
+      win32_print("\n");
+      return 0;
+    }
+    state->application.hDLL = ZAI_NULL;
+  }
+
+  if (!CopyFileA(dllName, dllTempName, 0))
+  {
+    win32_print("[win32] cannot copy file: ");
+    win32_print(dllName);
+    win32_print("\n");
+    return 0;
+  }
+
+  state->application.hDLL = LoadLibraryA(dllTempName);
+  state->application.dllName = dllName;
+  state->application.lastWriteTime = win32_file_mod_time(dllName);
+
+  if (!state->application.hDLL)
+  {
+    return 0;
+  }
+
+  /* FIX for ERROR: ISO C forbids conversion of object pointer to function pointer type*/
+  /* https://pubs.opengroup.org/onlinepubs/009695399/functions/dlsym.html */
+  *(void **)(&zai_update) = GetProcAddress(state->application.hDLL, "zai_update");
+
+  return 1;
 }
 
 /* #############################################################################
@@ -838,76 +852,6 @@ typedef struct shader_header
 
 } shader_header;
 
-typedef struct shader_main
-{
-  shader_header header;
-
-  i32 loc_iResolution;
-  i32 loc_iTime;
-  i32 loc_iTimeDelta;
-  i32 loc_iFrame;
-  i32 loc_iFrameRate;
-  i32 loc_iMouse;
-  i32 loc_iTextureInfo;
-  i32 loc_iTexture;
-  i32 loc_iController;
-
-  i32 loc_brick_map_texture;
-  i32 loc_atlas_texture;
-  i32 loc_material_texture;
-  i32 loc_palette_texture;
-
-  i32 loc_brick_map_dim;
-  i32 loc_atlas_brick_dim;
-
-  i32 loc_inverse_atlas_size;
-  i32 loc_grid_start;
-  i32 loc_cell_size;
-  i32 loc_cell_diagonal;
-  i32 loc_truncation;
-  i32 loc_cell_size_inverse;
-
-  /* Camera */
-  i32 loc_camera_position;
-  i32 loc_camera_forward;
-  i32 loc_camera_right;
-  i32 loc_camera_up;
-  i32 loc_camera_forward_scaled;
-
-} shader_main;
-
-typedef struct shader_ui
-{
-  shader_header header;
-
-  i32 loc_projection;
-
-} shader_ui;
-
-typedef struct shader_terrain
-{
-  shader_header header;
-
-  i32 loc_iResolution;
-  i32 loc_camera;
-  i32 loc_camera_view_dir;
-  i32 loc_base_scale;
-  i32 loc_mvp;
-  i32 loc_texture_diffuse;
-  i32 loc_texture_normal;
-  i32 loc_texture_displacement;
-
-} shader_terrain;
-
-typedef struct shader_marching_cubes
-{
-  shader_header header;
-
-  i32 loc_iResolution;
-  i32 loc_mvp;
-
-} shader_marching_cubes;
-
 typedef struct shader_font
 {
   shader_header header;
@@ -1002,7 +946,7 @@ ZAI_API ZAI_INLINE i32 opengl_create_context(win32_zai_state *state)
   window_class.hCursor = LoadCursorA(0, IDC_ARROW);
   window_class.hIcon = LoadIconA(window_instance, MAKEINTRESOURCEA(1));
   window_class.hbrBackground = 0;
-  window_class.lpszClassName = state->window_title;
+  window_class.lpszClassName = state->platform_state.window.title;
 
   if (!RegisterClassA(&window_class))
   {
@@ -1050,8 +994,8 @@ ZAI_API ZAI_INLINE i32 opengl_create_context(win32_zai_state *state)
     return 0;
   }
 
-  rect.right = (i32)state->window_width;
-  rect.bottom = (i32)state->window_height;
+  rect.right = (i32)state->platform_state.window.width;
+  rect.bottom = (i32)state->platform_state.window.height;
   AdjustWindowRect(&rect, window_style, 0);
 
   state->window_handle = CreateWindowExA(
@@ -1197,54 +1141,6 @@ static s8 *shader_code_vertex =
     ");"
     "void main(){gl_Position=vec4(quad[gl_VertexID],0.0,1.0);}";
 
-ZAI_API void opengl_shader_load_shader_main(shader_main *shader, s8 *shader_file_name)
-{
-
-  u32 size = 0;
-  u8 *shader_code_fragment = win32_file_read(shader_file_name, &size);
-
-  if (!shader_code_fragment || size < 1)
-  {
-    return;
-  }
-
-  if (opengl_shader_load(&shader->header, shader_code_vertex, (s8 *)shader_code_fragment))
-  {
-    shader->loc_iResolution = glGetUniformLocation(shader->header.program, "iResolution");
-    shader->loc_iTime = glGetUniformLocation(shader->header.program, "iTime");
-    shader->loc_iTimeDelta = glGetUniformLocation(shader->header.program, "iTimeDelta");
-    shader->loc_iFrame = glGetUniformLocation(shader->header.program, "iFrame");
-    shader->loc_iFrameRate = glGetUniformLocation(shader->header.program, "iFrameRate");
-    shader->loc_iMouse = glGetUniformLocation(shader->header.program, "iMouse");
-    shader->loc_iTextureInfo = glGetUniformLocation(shader->header.program, "iTextureInfo");
-    shader->loc_iTexture = glGetUniformLocation(shader->header.program, "iTexture");
-    shader->loc_iController = glGetUniformLocation(shader->header.program, "iController");
-
-    shader->loc_brick_map_texture = glGetUniformLocation(shader->header.program, "uBrickMap");
-    shader->loc_atlas_texture = glGetUniformLocation(shader->header.program, "uAtlas");
-    shader->loc_material_texture = glGetUniformLocation(shader->header.program, "uMaterial");
-    shader->loc_palette_texture = glGetUniformLocation(shader->header.program, "uPalette");
-
-    shader->loc_brick_map_dim = glGetUniformLocation(shader->header.program, "uBrickMapDim");
-    shader->loc_atlas_brick_dim = glGetUniformLocation(shader->header.program, "uAtlasBrickDim");
-    shader->loc_inverse_atlas_size = glGetUniformLocation(shader->header.program, "uInvAtlasSize");
-    shader->loc_grid_start = glGetUniformLocation(shader->header.program, "uGridStart");
-    shader->loc_cell_size = glGetUniformLocation(shader->header.program, "uCellSize");
-    shader->loc_cell_size_inverse = glGetUniformLocation(shader->header.program, "uInvCellSize");
-    shader->loc_cell_diagonal = glGetUniformLocation(shader->header.program, "uCellDiagonal");
-    shader->loc_truncation = glGetUniformLocation(shader->header.program, "uTruncation");
-
-    /* Camera */
-    shader->loc_camera_position = glGetUniformLocation(shader->header.program, "camera_position");
-    shader->loc_camera_forward = glGetUniformLocation(shader->header.program, "camera_forward");
-    shader->loc_camera_right = glGetUniformLocation(shader->header.program, "camera_right");
-    shader->loc_camera_up = glGetUniformLocation(shader->header.program, "camera_up");
-    shader->loc_camera_forward_scaled = glGetUniformLocation(shader->header.program, "camera_forward_scaled");
-  }
-
-  VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
-}
-
 ZAI_API void opengl_shader_load_shader_font(shader_font *shader)
 {
   static s8 *shader_font_code_vertex =
@@ -1323,1201 +1219,6 @@ ZAI_API void opengl_shader_load_shader_recording(shader_recording *shader)
   }
 }
 
-ZAI_API void zai_create_grid(win32_zai_state *state, zai_sparse_grid *grid, zai_vec3 grid_center, u32 grid_cell_count, f32 grid_cell_size)
-{
-  zai_sparse_grid_initialize(grid, grid_center, grid_cell_count, grid_cell_size);
-
-  grid->brick_map_data = VirtualAlloc(0, grid->brick_map_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-  ZAI_PROFILER_BEGIN(sparse_grid_pass_01);
-  zai_sparse_grid_pass_01_fill_brick_map(grid, zai_sdf_scene, state);
-  ZAI_PROFILER_END(sparse_grid_pass_01);
-
-  grid->atlas_data = VirtualAlloc(0, grid->atlas_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-  grid->material_data = VirtualAlloc(0, grid->atlas_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-  state->mem_brick_map_bytes = grid->brick_map_bytes;
-  state->mem_atlas_bytes = grid->atlas_bytes;
-  state->grid_active_brick_count = grid->brick_map_active_bricks_count;
-  state->grid_atlas_dimensions = grid->atlas_dimensions;
-
-  ZAI_PROFILER_BEGIN(sparse_grid_pass_02);
-  zai_sparse_grid_pass_02_fill_atlas(grid, zai_sdf_scene, state);
-  ZAI_PROFILER_END(sparse_grid_pass_02);
-}
-
-ZAI_API void zai_render_grid(win32_zai_state *state, shader_main *main_shader, u32 main_vao)
-{
-  static u8 grid_initialized = 0;
-  static zai_sparse_grid grid_lod0 = {0};
-  static u32 brickMapTex;
-  static u32 atlasTex;
-  static u32 materialTex;
-  static u32 paletteTex;
-  static f32 cell_size_inverse = 0.0f;
-
-  /* Camera */
-  static zai_vec3 camera_position;
-  static zai_vec3 camera_forward;
-  static zai_vec3 camera_right;
-  static zai_vec3 camera_up;
-  static zai_vec3 camera_forward_scaled;
-  static f32 camera_fov = 1.5f;
-
-  if (!grid_initialized)
-  {
-    u32 grid_cell_count = 128;
-    f32 grid_cell_size = 1.0f / 16.0f;
-
-    ZAI_PROFILER_BEGIN(sdf_scene_build);
-    zai_sdf_scene_build();
-    ZAI_PROFILER_END(sdf_scene_build);
-
-    ZAI_PROFILER_BEGIN(sparse_grid_create_lod0);
-    zai_create_grid(state, &grid_lod0, zai_vec3_zero, grid_cell_count, grid_cell_size); /* LOD 0 */
-    ZAI_PROFILER_END(sparse_grid_create_lod0);
-
-    cell_size_inverse = 1.0f / grid_lod0.cell_size;
-
-    /* Brick Map */
-    glGenTextures(1, &brickMapTex);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glBindTexture(GL_TEXTURE_3D, brickMapTex);
-
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R16UI,
-                 (i32)grid_lod0.brick_map_dimensions,
-                 (i32)grid_lod0.brick_map_dimensions,
-                 (i32)grid_lod0.brick_map_dimensions,
-                 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, grid_lod0.brick_map_data);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    /* Atlas Texture */
-    glGenTextures(1, &atlasTex);
-    glBindTexture(GL_TEXTURE_3D, atlasTex);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8_SNORM,
-                 (i32)grid_lod0.atlas_dimensions.x,
-                 (i32)grid_lod0.atlas_dimensions.y,
-                 (i32)grid_lod0.atlas_dimensions.z,
-                 0, GL_RED, GL_BYTE, grid_lod0.atlas_data);
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
-
-    /* Material Texture */
-    (void)GL_R8UI;
-    (void)GL_RED_INTEGER;
-    (void)GL_NEAREST;
-
-    glGenTextures(1, &materialTex);
-    glBindTexture(GL_TEXTURE_3D, materialTex);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8,
-                 (i32)grid_lod0.atlas_dimensions.x,
-                 (i32)grid_lod0.atlas_dimensions.y,
-                 (i32)grid_lod0.atlas_dimensions.z,
-                 0, GL_RED, GL_UNSIGNED_BYTE, grid_lod0.material_data);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-    /* Palette Texture */
-    glGenTextures(1, &paletteTex);
-    glBindTexture(GL_TEXTURE_1D, paletteTex);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, zai_sdf_scene_materials);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-
-    grid_initialized = 1;
-  }
-
-  /* Camera Setup */
-  {
-    zai_vec3 world_up = zai_vec3_init(0.0f, 1.0f, 0.0f);
-    zai_vec3 camera_look_at = zai_vec3_zero;
-
-    camera_position = zai_vec3_init(zai_sinf((f32)state->iTime) * 0.5f, 1.0f, 2.0f);
-    camera_forward = zai_vec3_normalize(zai_vec3_sub(camera_look_at, camera_position)); /* Z-Axis */
-    camera_right = zai_vec3_normalize(zai_vec3_cross(camera_forward, world_up));        /* X-Axis */
-    camera_up = zai_vec3_normalize(zai_vec3_cross(camera_right, camera_forward));       /* Y-Axis */
-    camera_fov = 1.5f;
-    camera_forward_scaled = zai_vec3_mulf(camera_forward, camera_fov);
-  }
-
-  /******************************/
-  /* Draw                       */
-  /******************************/
-  ZAI_PROFILER_BEGIN(gl_draw);
-
-  glUseProgram(main_shader->header.program);
-
-  /* General uniforms */
-  glUniform3f(main_shader->loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
-  glUniform1f(main_shader->loc_iTime, (f32)state->iTime);
-
-  /* Camera uniforms */
-  glUniform3f(main_shader->loc_camera_position, camera_position.x, camera_position.y, camera_position.z);
-  glUniform3f(main_shader->loc_camera_forward, camera_forward.x, camera_forward.y, camera_forward.z);
-  glUniform3f(main_shader->loc_camera_right, camera_right.x, camera_right.y, camera_right.z);
-  glUniform3f(main_shader->loc_camera_up, camera_up.x, camera_up.y, camera_up.z);
-  glUniform3f(main_shader->loc_camera_forward_scaled, camera_forward_scaled.x, camera_forward_scaled.y, camera_forward_scaled.z);
-
-  /* Grid uniforms */
-  glUniform3f(main_shader->loc_brick_map_dim, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE);
-  glUniform3i(main_shader->loc_atlas_brick_dim, (i32)grid_lod0.atlas_bricks_per_row, (i32)0, (i32)0);
-  glUniform3f(main_shader->loc_inverse_atlas_size, grid_lod0.atlas_dimensions_inverse.x, grid_lod0.atlas_dimensions_inverse.y, grid_lod0.atlas_dimensions_inverse.z);
-  glUniform3f(main_shader->loc_grid_start, grid_lod0.start.x, grid_lod0.start.y, grid_lod0.start.z);
-  glUniform1f(main_shader->loc_cell_size, grid_lod0.cell_size);
-  glUniform3f(main_shader->loc_cell_size_inverse, cell_size_inverse, cell_size_inverse, cell_size_inverse);
-  glUniform1f(main_shader->loc_truncation, grid_lod0.truncation_distance);
-
-  /* Bind textures to texture units */
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_3D, brickMapTex);
-  glUniform1i(main_shader->loc_brick_map_texture, 0);
-
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_3D, atlasTex);
-  glUniform1i(main_shader->loc_atlas_texture, 1);
-
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_3D, materialTex);
-  glUniform1i(main_shader->loc_material_texture, 2);
-
-  glActiveTexture(GL_TEXTURE3);
-  glBindTexture(GL_TEXTURE_1D, paletteTex);
-  glUniform1i(main_shader->loc_palette_texture, 3);
-
-  glBindVertexArray(main_vao);
-  glDrawArrays(GL_TRIANGLES, 0, 3);
-
-  ZAI_PROFILER_END(gl_draw);
-}
-
-ZAI_API void zai_render_ui(win32_zai_state *state)
-{
-  static u8 fatom_render_ui_initialized = 0;
-  static shader_ui ui_shader;
-  static u32 quadVAO, quadVBO, instanceVBO;
-  static zai_mat4x4 orthographic;
-
-  (void)state;
-
-  if (!fatom_render_ui_initialized)
-  {
-    static f32 vertices[] = {0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f}; /* Unit quad (2 triangles) */
-
-    /* OpenGL Shader Setup */
-    static s8 *code_vertex =
-        "#version 330 core\n"
-        "layout (location = 0) in vec2 aPos;   // Unit quad: (0,0) to (1,1)\n"
-        "layout (location = 1) in vec4 aRect;  // Instance: x, y, w, h\n"
-        "layout (location = 2) in vec4 aColor; // Instance: r, g, b, a\n"
-        "\n"
-        "out vec4 fragColor;\n"
-        "uniform mat4 projection;\n"
-        "\n"
-        "void main() {\n"
-        "  fragColor = aColor;\n"
-        "  vec2 worldPos = aPos * aRect.zw + aRect.xy;\n"
-        "  gl_Position = projection * vec4(worldPos, 0.0, 1.0);\n"
-        "}";
-
-    static s8 *code_fragment =
-        "#version 330 core\n"
-        "in vec4 fragColor;\n"
-        "out vec4 outColor;\n"
-        "void main() {\n"
-        "  outColor = fragColor;\n"
-        "}";
-
-    if (opengl_shader_load(&ui_shader.header, code_vertex, code_fragment))
-    {
-      ui_shader.loc_projection = glGetUniformLocation(ui_shader.header.program, "projection");
-    }
-
-    /* OpenGL Data Setup */
-    glGenVertexArrays(1, &quadVAO);
-    glGenBuffers(1, &quadVBO);
-    glGenBuffers(1, &instanceVBO);
-
-    glBindVertexArray(quadVAO);
-
-    /* Static Quad */
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(f32), ZAI_NULL);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, ZAI_UI_MAX_RENDER_INSTANCES * sizeof(zai_ui_render_instance), ZAI_NULL, GL_DYNAMIC_DRAW);
-
-    /* Location 1: Rect (vec4) */
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(zai_ui_render_instance), ZAI_NULL);
-    glEnableVertexAttribArray(1);
-    glVertexAttribDivisor(1, 1);
-
-    /* Location 2: Color (vec4) */
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(zai_ui_render_instance), (void *)(4 * sizeof(f32)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribDivisor(2, 1);
-
-    fatom_render_ui_initialized = 1;
-  }
-
-  /* Setup UI */
-  ZAI_PROFILER_BEGIN(ui_process);
-  {
-    static zai_ui_context ui_context = {0};
-    static u32 wx = 10;
-    static u32 wy = 10;
-    static u32 dhw = 200;
-    static u32 dhh = 20;
-    static f32 ui_scale = 0.8f;
-    static u8 collapsed = 1;
-
-    ui_context.mouse_x = (u16)(state->mouse_x < 0 ? 0 : state->mouse_x);
-    ui_context.mouse_y = (u16)((i32)state->window_height - (state->mouse_y < 0 ? 0 : state->mouse_y));
-    ui_context.mouse_left_is_down = state->mouse_left_is_down;
-    ui_context.mouse_right_is_down = state->mouse_right_is_down;
-    ui_context.padding = 10;
-
-    /* Control zoom */
-    if ((state->keys_is_down[0xBB] && !state->keys_was_down[0xBB]) ||
-        (state->keys_is_down[0x6B] && !state->keys_was_down[0x6B]))
-    {
-      ui_scale += 0.1f;
-    }
-
-    if ((state->keys_is_down[0xBD] && !state->keys_was_down[0xBD]) ||
-        (state->keys_is_down[0x6D] && !state->keys_was_down[0x6D]))
-    {
-      ui_scale -= 0.1f;
-    }
-
-    if (ui_scale <= 0.1f)
-    {
-      ui_scale = 0.1f;
-    }
-
-    ui_context.scale = ui_scale;
-
-    zai_ui_begin(&ui_context);
-
-    /* Drag Header */
-    {
-      zai_ui_result header_res = zai_ui_drag_header(&ui_context, 1, &wx, &wy, dhw, dhh);
-      zai_ui_render_instance_push(header_res, 0.2f, 0.2f, 0.2f, 1.0f);
-
-      if ((header_res.state & ZAI_UI_STATE_HOVER) && state->mouse_right_is_down && !state->mouse_right_was_down)
-      {
-        collapsed = !(collapsed);
-      }
-    }
-
-    if (!collapsed)
-    {
-      /* Panel */
-      {
-        zai_ui_result panel_res = zai_ui_panel_begin(&ui_context, wx, wy + dhh, 200, 300);
-        zai_ui_render_instance_push(panel_res, 0.1f, 0.1f, 0.1f, 0.6f);
-      }
-
-      /* Button */
-      {
-        zai_ui_result button = zai_ui_button(&ui_context, 2, 0, 0, 0, 30);
-
-        if (button.state & ZAI_UI_STATE_RELEASED)
-        {
-          zai_ui_render_instance_push(button, 1.0f, 1.0f, 1.0f, 1.0f);
-        }
-        else if (button.state & ZAI_UI_STATE_HELD)
-        {
-          zai_ui_render_instance_push(button, 0.0f, 0.0f, 1.0f, 1.0f);
-        }
-        else if (button.state & ZAI_UI_STATE_HOVER)
-        {
-          zai_ui_render_instance_push(button, 1.0f, 0.0f, 0.0f, 1.0f);
-        }
-        else
-        {
-          zai_ui_render_instance_push(button, 0.0f, 1.0f, 0.0f, 1.0f);
-        }
-      }
-
-      /* Slider LOD count */
-      {
-        zai_ui_result slider = zai_ui_slider_int(&ui_context, 3, 0, 0, 0, 20, &state->terrain_lod_count, 1, 15, 1);
-        zai_ui_result knob_rect;
-        u32 knob_width;
-        u32 knob_x;
-        f32 knob_color;
-
-        zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
-
-        knob_width = 10;
-        knob_x = slider.x + (u32)(zai_remapf((f32)state->terrain_lod_count, 1.0f, 15.0f, 0.0f, 1.0f) * (f32)(slider.w - knob_width));
-
-        knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
-
-        knob_color = (slider.state & ZAI_UI_STATE_HELD) ? 0.8f : 0.6f;
-        zai_ui_render_instance_push(knob_rect, knob_color, knob_color, knob_color, 1.0f);
-      }
-
-      /* Slider Base Scale count */
-      {
-        zai_ui_result slider = zai_ui_slider_int(&ui_context, 6, 0, 0, 0, 20, &state->terrain_base_scale, 64, 1024, 64);
-        zai_ui_result knob_rect;
-        u32 knob_width;
-        u32 knob_x;
-        f32 knob_color;
-
-        zai_ui_render_instance_push(slider, 0.2f, 0.2f, 0.2f, 1.0f);
-
-        knob_width = 10;
-        knob_x = slider.x + (u32)(zai_remapf((f32)state->terrain_base_scale, 64.0f, 1024.0f, 0.0f, 1.0f) * (f32)(slider.w - knob_width));
-
-        knob_rect = zai_ui_result_init(knob_x, slider.y, knob_width, slider.h, 0);
-
-        knob_color = (slider.state & ZAI_UI_STATE_HELD) ? 0.8f : 0.6f;
-        zai_ui_render_instance_push(knob_rect, knob_color, knob_color, knob_color, 1.0f);
-      }
-
-      /* Checkbox */
-      {
-        static u8 checked = 0;
-        zai_ui_result checkbox = zai_ui_checkbox(&ui_context, 4, 0, 0, 20, 20, &checked);
-
-        if (checked)
-        {
-          zai_ui_render_instance_push(checkbox, 0.0f, 1.0f, 0.0f, 1.0f);
-        }
-        else
-        {
-          zai_ui_render_instance_push(checkbox, 1.0f, 0.0f, 0.0f, 1.0f);
-        }
-      }
-
-      zai_ui_panel_end(&ui_context);
-    }
-
-    zai_ui_end(&ui_context);
-  }
-  ZAI_PROFILER_END(ui_process);
-
-  /* Setup projection */
-  orthographic = zai_mat4x4_orthographic(0.0f, (f32)state->window_width, (f32)state->window_height, 0.0f, -1.0f, 1.0f);
-
-  /* OpenGL Draw */
-  /* glDisable(GL_DEPTH_TEST); */
-
-  glUseProgram(ui_shader.header.program);
-  glUniformMatrix4fv(ui_shader.loc_projection, 1, GL_FALSE, orthographic.e);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-  glBindVertexArray(quadVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, (i32)(zai_ui_render_instances_count * sizeof(zai_ui_render_instance)), zai_ui_render_instances);
-  glDrawArraysInstanced(GL_TRIANGLES, 0, 6, zai_ui_render_instances_count);
-  glBindVertexArray(0);
-
-  glDisable(GL_BLEND);
-
-  zai_ui_render_instances_count = 0;
-}
-
-ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_camera *camera, f32 camera_speed)
-{
-  static u8 mouse_attached = 0;
-
-  f32 cam_speed = camera_speed * (f32)state->iTimeDelta;
-
-  if (state->keys_is_down[0x57]) /* W */
-  {
-    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->front, cam_speed));
-  }
-
-  if (state->keys_is_down[0x53]) /* S */
-  {
-    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->front, cam_speed));
-  }
-
-  if (state->keys_is_down[0x41]) /* A */
-  {
-    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->right, cam_speed));
-  }
-
-  if (state->keys_is_down[0x44]) /* D */
-  {
-    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->right, cam_speed));
-  }
-
-  if (state->keys_is_down[0x20]) /* space */
-  {
-    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
-  }
-
-  if (state->keys_is_down[0x11]) /* control */
-  {
-    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
-  }
-
-  if (state->mouse_right_is_down && !state->mouse_right_was_down)
-  {
-    mouse_attached = !mouse_attached;
-  }
-
-  if (mouse_attached)
-  {
-    f32 mouseSensitivity = 0.1f;
-    camera->yaw += zai_minf((f32)state->mouse_dx * mouseSensitivity, 89.0f);
-    camera->pitch += zai_maxf((f32)state->mouse_dy * mouseSensitivity, -89.0f);
-    camera->pitch = zai_clampf(camera->pitch, -89.0f, 89.0f);
-
-    if (state->mouse_scroll != 0.0f)
-    {
-      camera->fov = zai_clampf(camera->fov - (state->mouse_scroll * 2), 1.0f, 179.0f);
-    }
-  }
-
-  zai_camera_update(camera);
-}
-
-/* #############################################################################
- * # [SECTION] Clipmap Terrain
- * #############################################################################
- */
-#define GRID_RES 129 /* 65 */
-#define MAX_VERTS (GRID_RES * GRID_RES)
-#define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
-
-ZAI_API void zai_render_terrain(win32_zai_state *state)
-{
-  static u8 terrain_initialized = 0;
-  static shader_terrain terrain_shader = {0};
-
-  static zai_vec2 gridVerts[MAX_VERTS];
-  static u32 gridIndices[MAX_INDICES];
-  static i32 gridIndexCount = 0;
-
-  static u32 terrain_vao;
-  static u32 terrain_vbo;
-  static u32 terrain_ibo;
-
-  static u32 tex_diffuse;
-  static u32 tex_normal;
-  static u32 tex_displacement;
-
-  static zai_camera camera = {0};
-
-  if (!terrain_initialized)
-  {
-    u32 size_code_vertex = 0;
-    u32 size_code_fragment = 0;
-    u8 *shader_code_vertex = win32_file_read("zai_terrain.vs", &size_code_vertex);
-    u8 *shader_code_fragment = win32_file_read("zai_terrain.fs", &size_code_fragment);
-
-    ZAI_PROFILER_BEGIN(setup_terrain);
-
-    camera = zai_camera_init();
-    camera.position.y = 500.0f;
-    camera.position.z = 6.0f;
-
-    state->terrain_lod_count = 10;
-    state->terrain_base_scale = 128;
-
-    if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
-    {
-      win32_print("Cannot load terrain shader files!\n");
-      return;
-    }
-
-    if (opengl_shader_load(&terrain_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
-    {
-      terrain_shader.loc_iResolution = glGetUniformLocation(terrain_shader.header.program, "iResolution");
-      terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "iCamera");
-      terrain_shader.loc_camera_view_dir = glGetUniformLocation(terrain_shader.header.program, "iViewDir");
-      terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "iBaseScale");
-      terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "MVP");
-      terrain_shader.loc_texture_diffuse = glGetUniformLocation(terrain_shader.header.program, "tex_diffuse");
-      terrain_shader.loc_texture_normal = glGetUniformLocation(terrain_shader.header.program, "tex_normal");
-      terrain_shader.loc_texture_displacement = glGetUniformLocation(terrain_shader.header.program, "tex_displacement");
-
-      if (
-          terrain_shader.loc_camera < 0 ||
-          terrain_shader.loc_base_scale < 0 ||
-          terrain_shader.loc_mvp < 0 ||
-          terrain_shader.loc_texture_diffuse < 0 ||
-          terrain_shader.loc_texture_normal < 0 ||
-          terrain_shader.loc_texture_displacement < 0)
-      {
-        win32_print("Cannot find uniforms!\n");
-      }
-    }
-    else
-    {
-      win32_print("Cannot compile shaders!\n");
-    }
-
-    VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
-    VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
-
-    /* Generate Grid */
-    {
-      i32 x;
-      i32 z;
-      i32 i;
-
-      /* UV grid */
-      for (z = 0; z < GRID_RES; ++z)
-      {
-        for (x = 0; x < GRID_RES; ++x)
-        {
-          i = z * GRID_RES + x;
-          gridVerts[i].x = (f32)x / (f32)(GRID_RES - 1);
-          gridVerts[i].y = (f32)z / (f32)(GRID_RES - 1);
-        }
-      }
-
-      /* indices */
-      i = 0;
-
-      for (z = 0; z < GRID_RES - 1; ++z)
-      {
-        for (x = 0; x < GRID_RES - 1; ++x)
-        {
-          u32 i0 = (u32)(z * GRID_RES + x);
-          u32 i1 = i0 + 1;
-          u32 i2 = i0 + GRID_RES;
-          u32 i3 = i2 + 1;
-
-          gridIndices[i++] = i0;
-          gridIndices[i++] = i2;
-          gridIndices[i++] = i1;
-
-          gridIndices[i++] = i1;
-          gridIndices[i++] = i2;
-          gridIndices[i++] = i3;
-        }
-      }
-
-      gridIndexCount = i;
-    }
-
-    glGenVertexArrays(1, &terrain_vao);
-    glBindVertexArray(terrain_vao);
-
-    glGenBuffers(1, &terrain_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, terrain_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(gridVerts), gridVerts, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(zai_vec2), (void *)0);
-    glEnableVertexAttribArray(0);
-
-    glGenBuffers(1, &terrain_ibo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
-
-    /* Diffuse */
-    {
-      u32 w = 1024;
-      u32 h = 1024;
-
-      u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_diff_1k.raw", &file_size);
-
-      if (!file_contents || file_size < 1)
-      {
-        win32_print("Cannot read diffuse texture!\n");
-      }
-
-      glGenTextures(1, &tex_diffuse);
-      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glActiveTexture(GL_TEXTURE0);
-    }
-
-    /* Normal */
-    {
-      u32 w = 1024;
-      u32 h = 1024;
-
-      u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_nor_dx_1k.raw", &file_size);
-
-      if (!file_contents || file_size < 1)
-      {
-        win32_print("Cannot read normal texture!\n");
-      }
-
-      glGenTextures(1, &tex_normal);
-      glBindTexture(GL_TEXTURE_2D, tex_normal);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glActiveTexture(GL_TEXTURE1);
-    }
-
-    /* Displacement */
-    {
-      u32 w = 1024;
-      u32 h = 1024;
-
-      u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_disp_1k.raw", &file_size);
-
-      if (!file_contents || file_size < 1)
-      {
-        win32_print("Cannot read displacement texture!\n");
-      }
-
-      glGenTextures(1, &tex_displacement);
-      glBindTexture(GL_TEXTURE_2D, tex_displacement);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
-      glGenerateMipmap(GL_TEXTURE_2D);
-      glActiveTexture(GL_TEXTURE2);
-    }
-
-    terrain_initialized = 1;
-
-    ZAI_PROFILER_END(setup_terrain);
-  }
-
-  /* Render */
-  ZAI_PROFILER_BEGIN(render_terrain);
-  {
-    static u8 wireframe_enabled = 0;
-
-    if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
-    {
-      wireframe_enabled = !wireframe_enabled;
-    }
-
-    zai_update_camera_movement(state, &camera, 100.0f);
-
-    {
-      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 10000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
-      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
-
-      glEnable(GL_CULL_FACE);
-      glCullFace(GL_BACK);
-
-      glUseProgram(terrain_shader.header.program);
-      glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
-      glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
-      glUniform3f(terrain_shader.loc_camera_view_dir, camera.front.x, camera.front.y, camera.front.z);
-
-      glUniform1f(terrain_shader.loc_base_scale, (f32)state->terrain_base_scale);
-      glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
-      glBindVertexArray(terrain_vao);
-      glEnable(GL_DEPTH_TEST);
-      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
-
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
-      glUniform1i(terrain_shader.loc_texture_diffuse, 0);
-
-      glActiveTexture(GL_TEXTURE1);
-      glBindTexture(GL_TEXTURE_2D, tex_normal);
-      glUniform1i(terrain_shader.loc_texture_normal, 1);
-
-      glActiveTexture(GL_TEXTURE2);
-      glBindTexture(GL_TEXTURE_2D, tex_displacement);
-      glUniform1i(terrain_shader.loc_texture_displacement, 2);
-
-      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, state->terrain_lod_count);
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glDisable(GL_DEPTH_TEST);
-      glDisable(GL_CULL_FACE);
-    }
-  }
-  ZAI_PROFILER_END(render_terrain);
-}
-
-/* #############################################################################
- * # [SECTION] Marching Cubes
- * #############################################################################
- */
-ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, f32 grid_total_size, zai_vec3 grid_center)
-{
-  i32 x, y, z;
-  static f32 frequency = 0.03f;
-  static f32 amplitude = 15.0f;
-  static f32 lacunarity = 2.0f;
-  static f32 gain = 0.5f;
-  static i32 seed = (i32)0xDEADBEEF;
-  static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
-  static i32 octaves = 6;
-
-  (void)seed;
-  (void)zai_noise_rotation;
-
-  for (z = 0; z < grid_dimensions; ++z)
-  {
-    f32 wz = (((f32)z / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.z;
-
-    for (y = 0; y < grid_dimensions; ++y)
-    {
-      f32 wy = (((f32)y / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.y;
-
-      for (x = 0; x < grid_dimensions; ++x)
-      {
-        f32 wx = (((f32)x / ((f32)grid_dimensions - 1.0f)) - 0.5f) * grid_total_size + grid_center.x;
-
-        /* f32 noise_val = zai_noise_perlin_3_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
-        /* f32 noise_val = zai_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain, seed); */
-        /* f32 noise_val = zai_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, seed, zai_noise_rotation); */
-        /* f32 noise_val = zai_value_noise_3d_fbm(wx, wy, wz, frequency, octaves, lacunarity, gain); */
-        f32 noise_val = zai_value_noise_3d_fbm_rotation(wx, wy, wz, frequency, octaves, lacunarity, gain, zai_noise_rotation);
-        f32 offset = wy > 0.0f ? -wy * 0.6f : 0.0f;
-        f32 final_density = (noise_val * amplitude) + offset;
-
-        /*
-        final_density = wy + 20.0f;
-         */
-
-        /*
-        f32 density = zai_sinf(wx * scale) +
-                      zai_sinf(wy * scale) +
-                      zai_sinf(wz * scale);
-
-        density += zai_sinf(wx * scale * 2.1f) * 0.5f;
-        density += zai_sinf(wy * scale * 2.1f) * 0.5f;
-        density += zai_sinf(wz * scale * 2.1f) * 0.5f;
-        */
-
-        /*
-        if (x == 0 || x == dim - 1 || y == 0 || y == dim - 1 || z == 0 || z == dim - 1)
-        {
-          final_density = 1.0f;
-        }
-        else
-        {
-          final_density = (noise_val * amplitude);
-        }
-        */
-
-        grid[z * grid_dimensions * grid_dimensions + y * grid_dimensions + x] = final_density;
-      }
-    }
-  }
-}
-
-#define DIM 129
-#define MAX_TRIANGLES (DIM * DIM * DIM * 5)
-ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
-{
-  static u8 marching_cubes_initialized = 0;
-
-  static f32 density_grid[DIM * DIM * DIM];
-  static zai_marching_cubes_triangle *triangle_buffer;
-  static zai_marching_cubes_triangle *triangle_buffer_1;
-  static zai_marching_cubes_context ctx = {0};
-  static zai_marching_cubes_context ctx_1 = {0};
-  static i32 triangle_count = 0;
-  static i32 triangle_count_1 = 0;
-  static u32 vao;
-  static u32 vao_1;
-  static u32 vbo;
-  static u32 vbo_1;
-  static shader_marching_cubes marching_cubes_shader;
-
-  static zai_camera camera = {0};
-
-  if (!marching_cubes_initialized)
-  {
-    ZAI_PROFILER_BEGIN(setup_marching_cubes);
-
-    camera = zai_camera_init();
-    camera.position.y = 20.0f;
-    camera.position.z = 80.0f;
-
-    zai_noise_seed(0xDEADBEEF); /* 1234 */
-
-    /* Shader Setup */
-    {
-      u32 size_code_vertex = 0;
-      u32 size_code_fragment = 0;
-      u8 *shader_code_vertex = win32_file_read("zai_marching_cubes.vs", &size_code_vertex);
-      u8 *shader_code_fragment = win32_file_read("zai_marching_cubes.fs", &size_code_fragment);
-
-      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
-      {
-        win32_print("Cannot load marching cubes shader files!\n");
-        return;
-      }
-
-      if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
-      {
-        marching_cubes_shader.loc_iResolution = glGetUniformLocation(marching_cubes_shader.header.program, "iResolution");
-        marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
-
-        if (marching_cubes_shader.loc_mvp < 0)
-        {
-          win32_print("Cannot find uniforms!\n");
-        }
-      }
-      else
-      {
-        win32_print("Cannot compile shaders!\n");
-      }
-    }
-
-    triangle_buffer = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    triangle_buffer_1 = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    /* LOD 0 */
-    ctx.dim_size = DIM;
-    ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
-    ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
-    ctx.chunk_coord.x = 0.0f;
-    ctx.chunk_coord.y = 0.0f;
-    ctx.chunk_coord.z = 0.0f;
-    ctx.density_grid = density_grid;
-    ctx.transition_mask = 0;
-    ctx.lod_level = 0;
-
-    ZAI_PROFILER_BEGIN(setup_density_grid);
-    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
-    ZAI_PROFILER_END(setup_density_grid);
-
-    ZAI_PROFILER_BEGIN(setup_triangles);
-    zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
-    ZAI_PROFILER_END(setup_triangles);
-
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, triangle_count * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
-
-    /* LOD 1 */
-    ctx_1.dim_size = DIM;
-    ctx_1.grid_size = 100.0f; /* Total world-space size of the chunk */
-    ctx_1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
-    ctx_1.chunk_coord.x = 0.0f;
-    ctx_1.chunk_coord.y = 0.0f;
-    ctx_1.chunk_coord.z = -100.0f;
-    ctx_1.density_grid = density_grid;
-    ctx_1.transition_mask = 0;
-    ctx_1.lod_level = 0;
-
-    ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord);
-    ZAI_PROFILER_END(setup_density_grid_1);
-
-    ZAI_PROFILER_BEGIN(setup_triangles_1);
-    zai_marching_cubes_generate(&ctx_1, triangle_buffer_1, &triangle_count_1);
-    ZAI_PROFILER_END(setup_triangles_1);
-
-    glGenVertexArrays(1, &vao_1);
-    glBindVertexArray(vao_1);
-    glGenBuffers(1, &vbo_1);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_1);
-    glBufferData(GL_ARRAY_BUFFER, triangle_count_1 * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer_1, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
-
-    ZAI_PROFILER_END(setup_marching_cubes);
-
-    marching_cubes_initialized = 1;
-  }
-
-  /* Render */
-  ZAI_PROFILER_BEGIN(render_marching_cubes);
-  {
-    static u8 wireframe_enabled = 0;
-
-    if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
-    {
-      wireframe_enabled = !wireframe_enabled;
-    }
-
-    zai_update_camera_movement(state, &camera, 200.0f);
-
-    {
-      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
-      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
-
-      glEnable(GL_DEPTH_TEST);
-      /*
-       glEnable(GL_CULL_FACE);
-       glCullFace(GL_BACK);
-       */
-      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
-      glUseProgram(marching_cubes_shader.header.program);
-      glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
-      glUniform3f(marching_cubes_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
-
-      glBindVertexArray(vao);
-      glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
-
-      glBindVertexArray(vao_1);
-      glDrawArrays(GL_TRIANGLES, 0, triangle_count_1 * 3);
-
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glDisable(GL_DEPTH_TEST);
-      /*
-      glDisable(GL_CULL_FACE);
-      */
-    }
-  }
-  ZAI_PROFILER_END(render_marching_cubes);
-
-  (void)state;
-  (void)zai_marching_cubes_corner_index_a_from_edge;
-  (void)zai_marching_cubes_corner_index_b_from_edge;
-  (void)zai_marching_cubes_triangulation;
-}
-
-ZAI_API void zai_render_surface_nets(win32_zai_state *state)
-{
-  static u8 surface_nets_initialized = 0;
-
-  static shader_marching_cubes marching_cubes_shader = {0};
-
-  static zai_camera camera = {0};
-
-  static zai_surface_nets_context chunk_1 = {0};
-  static zai_surface_nets_context chunk_2 = {0};
-
-  /* Large scratch buffers for mesh data */
-  static zai_surface_nets_vertex *temp_verts;
-  static u32 *temp_indices;
-  static i32 vertex_count = 0;
-  static i32 index_count = 0;
-  static u32 vao;
-  static u32 vbo;
-  static u32 ebo;
-
-  static zai_surface_nets_vertex *temp_verts_1;
-  static u32 *temp_indices_1;
-  static i32 vertex_count_1 = 0;
-  static i32 index_count_1 = 0;
-  static u32 vao_1;
-  static u32 vbo_1;
-  static u32 ebo_1;
-
-  (void)state;
-
-  if (!surface_nets_initialized)
-  {
-    f32 *density_grid;
-    i32 *cell_indices; /* Required for vertex lookup */
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets);
-
-    camera = zai_camera_init();
-    camera.position.y = 20.0f;
-    camera.position.z = 80.0f;
-
-    /* Shader Setup */
-    {
-      u32 size_code_vertex = 0;
-      u32 size_code_fragment = 0;
-      u8 *shader_code_vertex = win32_file_read("zai_surface_nets.vs", &size_code_vertex);
-      u8 *shader_code_fragment = win32_file_read("zai_surface_nets.fs", &size_code_fragment);
-
-      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
-      {
-        win32_print("Cannot load marching cubes shader files!\n");
-        return;
-      }
-
-      if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
-      {
-        marching_cubes_shader.loc_iResolution = glGetUniformLocation(marching_cubes_shader.header.program, "iResolution");
-        marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
-
-        if (marching_cubes_shader.loc_mvp < 0)
-        {
-          win32_print("Cannot find uniforms!\n");
-        }
-      }
-      else
-      {
-        win32_print("Cannot compile shaders!\n");
-      }
-    }
-
-    /* Memory allocation for chunks */
-    density_grid = VirtualAlloc(0, DIM * DIM * DIM * sizeof(f32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    cell_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    temp_verts = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_verts_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(zai_surface_nets_vertex), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    temp_indices_1 = VirtualAlloc(0, DIM * DIM * DIM * sizeof(i32), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-    /* Chunk 1 */
-    chunk_1.grid_dimensions = DIM;    /* 129 */
-    chunk_1.grid_total_size = 100.0f; /* Total world-space size of the chunk */
-    chunk_1.grid_center.x = 0.0f;
-    chunk_1.grid_center.y = 0.0f;
-    chunk_1.grid_center.z = 0.0f;
-    chunk_1.iso_level = 0.0f; /* The "surface" is where density is 0 */
-    chunk_1.density_grid = density_grid;
-    chunk_1.buffer_indices = cell_indices;
-
-    ZAI_PROFILER_BEGIN(setup_density_grid);
-    initialize_density_grid(density_grid, DIM, chunk_1.grid_total_size, chunk_1.grid_center);
-    ZAI_PROFILER_END(setup_density_grid);
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh);
-    zai_surface_nets_generate(&chunk_1, temp_verts, &vertex_count, temp_indices, &index_count);
-    ZAI_PROFILER_END(setup_surface_nets_mesh);
-
-    /* Chunk 2 */
-    {
-      f32 cell_size = chunk_1.grid_total_size / (f32)(DIM - 1);
-      f32 mesh_stride = chunk_1.grid_total_size - cell_size;
-
-      chunk_2.grid_dimensions = DIM;
-      chunk_2.grid_total_size = 100.0f;
-      chunk_2.grid_center.x = 0.0f;
-      chunk_2.grid_center.y = 0.0f;
-      chunk_2.grid_center.z = chunk_1.grid_center.z - mesh_stride;
-      chunk_2.iso_level = 0.0f;
-      chunk_2.density_grid = density_grid;
-      chunk_2.buffer_indices = cell_indices;
-    }
-
-    ZAI_PROFILER_BEGIN(setup_density_grid_1);
-    initialize_density_grid(density_grid, DIM, chunk_2.grid_total_size, chunk_2.grid_center);
-    ZAI_PROFILER_END(setup_density_grid_1);
-
-    ZAI_PROFILER_BEGIN(setup_surface_nets_mesh_1);
-    zai_surface_nets_generate(&chunk_2, temp_verts_1, &vertex_count_1, temp_indices_1, &index_count_1);
-    ZAI_PROFILER_END(setup_surface_nets_mesh_1);
-
-    /* OpenGL Buffer Setup */
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
-
-    glBindVertexArray(vao);
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertex_count * (i32)sizeof(zai_surface_nets_vertex), temp_verts, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * (i32)sizeof(u32), temp_indices, GL_STATIC_DRAW);
-
-    /* Position: Attribute 0 */
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)0);
-    glEnableVertexAttribArray(0);
-    /* Normal: Attribute 1 */
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
-    glEnableVertexAttribArray(1);
-
-    /* OpenGL Buffer Setup */
-    glGenVertexArrays(1, &vao_1);
-    glGenBuffers(1, &vbo_1);
-    glGenBuffers(1, &ebo_1);
-
-    glBindVertexArray(vao_1);
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_1);
-    glBufferData(GL_ARRAY_BUFFER, vertex_count_1 * (i32)sizeof(zai_surface_nets_vertex), temp_verts_1, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_1);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count_1 * (i32)sizeof(u32), temp_indices_1, GL_STATIC_DRAW);
-
-    /* Position: Attribute 0 */
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)0);
-    glEnableVertexAttribArray(0);
-    /* Normal: Attribute 1 */
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_surface_nets_vertex), (void *)(sizeof(zai_vec3)));
-    glEnableVertexAttribArray(1);
-
-    surface_nets_initialized = 1;
-
-    ZAI_PROFILER_END(setup_surface_nets);
-  }
-
-  /* Render */
-  ZAI_PROFILER_BEGIN(render_surface_nets);
-  {
-    static u8 wireframe_enabled = 0;
-
-    if (state->keys_is_down[0x09] && !state->keys_was_down[0x09]) /* TAB */
-    {
-      wireframe_enabled = !wireframe_enabled;
-    }
-
-    zai_update_camera_movement(state, &camera, 100.0f);
-
-    {
-      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
-      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
-
-      glEnable(GL_DEPTH_TEST);
-      /*
-      glEnable(GL_CULL_FACE);
-      glCullFace(GL_BACK);
-       */
-
-      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
-      glUseProgram(marching_cubes_shader.header.program);
-      glUniform3f(marching_cubes_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
-      glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
-
-      glBindVertexArray(vao);
-      glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_INT, 0);
-
-      glBindVertexArray(vao_1);
-      glDrawElements(GL_TRIANGLES, index_count_1, GL_UNSIGNED_INT, 0);
-
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-      glDisable(GL_DEPTH_TEST);
-
-      /*
-      glDisable(GL_CULL_FACE);
-       */
-    }
-  }
-  ZAI_PROFILER_END(render_surface_nets);
-}
-
 /* #############################################################################
  * # [SECTION] Main Entry Point
  * #############################################################################
@@ -2528,7 +1229,6 @@ ZAI_API i32 start(i32 argc, u8 **argv)
   s8 *fragment_shader_file_name = (argv && argc > 1) ? (s8 *)argv[1] : "zai.fs";
 
   win32_zai_state state = {0};
-  shader_main main_shader = {0};
   shader_font font_shader = {0};
   shader_recording recording_shader = {0};
 
@@ -2538,15 +1238,35 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
   u32 tex;
 
-  state.running = 1;
-  state.window_title = "zai v0.1 (F1=Debug UI, F2=Screen Recording, R=Reset, P=Pause, F9=Borderless, F11=Fullscreen)";
-  state.window_width = 800;
-  state.window_height = 600;
-  state.window_clear_color_r = 0.1f;
-  state.window_clear_color_g = 0.1f;
-  state.window_clear_color_b = 0.1f;
-  state.target_frames_per_second = 30; /* 60 FPS, 0 = unlimited */
-  state.controller.check_needed = 1;   /* By default we have to query first XInput state */
+  state.platform_state.running = 1;
+  state.platform_state.window.title = "zai v0.1 (F1=Debug UI, F2=Screen Recording, R=Reset, P=Pause, F9=Borderless, F11=Fullscreen)";
+  state.platform_state.timing.frame_rate_target = 30; /* 60 FPS, 0 = unlimited */
+  state.controller_check_needed = 1;                  /* By default we have to query first XInput state */
+
+  /* Platform API setup */
+  state.platform_state.api.io_print = win32_print;
+
+  /* Platform Window setup */
+  state.platform_state.window.width = 800;
+  state.platform_state.window.height = 600;
+  state.platform_state.window.clear_color_r = 0.1f;
+  state.platform_state.window.clear_color_g = 0.1f;
+  state.platform_state.window.clear_color_b = 0.1f;
+
+  /* Platform Memory Setup */
+  state.platform_state.memory.size = 1024 * 1024 * 64; /* 64 MB */
+  state.platform_state.memory.data = VirtualAlloc(0, state.platform_state.memory.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+  (void)win32_file_read;
+
+  /******************************/
+  /* Load application once      */
+  /******************************/
+  if (!win32_load_application(&state))
+  {
+    win32_print("[ERROR] Could not load application!\n");
+    return 1;
+  }
 
   /******************************/
   /* Set Process Priorities     */
@@ -2592,8 +1312,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &state.gl_max_3d_texture_size);
 
   /* Avoid clear color flickering */
-  glViewport(0, 0, (i32)state.window_width, (i32)state.window_height);
-  glClearColor(state.window_clear_color_r, state.window_clear_color_g, state.window_clear_color_b, state.window_clear_color_a);
+  glViewport(0, 0, (i32)state.platform_state.window.width, (i32)state.platform_state.window.height);
+  glClearColor(state.platform_state.window.clear_color_r, state.platform_state.window.clear_color_g, state.platform_state.window.clear_color_b, state.platform_state.window.clear_color_a);
   glDisable(GL_FRAMEBUFFER_SRGB);
   glDisable(GL_MULTISAMPLE);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -2616,7 +1336,6 @@ ZAI_API i32 start(i32 argc, u8 **argv)
     win32_print(fragment_shader_file_name);
     win32_print("\n");
 
-    opengl_shader_load_shader_main(&main_shader, fragment_shader_file_name);
     opengl_shader_load_shader_font(&font_shader);
     opengl_shader_load_shader_recording(&recording_shader);
   }
@@ -2691,7 +1410,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
     time_last = time_start;
 
-    while (state.running)
+    while (state.platform_state.running)
     {
       i64 time_now;
 
@@ -2701,26 +1420,38 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       {
         QueryPerformanceCounter(&time_now);
 
-        state.iTimeDelta = (f64)(time_now - time_last) / (f64)perf_freq;
-        state.iTime = (f64)(time_now - time_start) / (f64)perf_freq;
+        state.platform_state.timing.time_delta = (f64)(time_now - time_last) / (f64)perf_freq;
+        state.platform_state.timing.time_elapsed = (f64)(time_now - time_start) / (f64)perf_freq;
 
         time_last = time_now;
 
-        if (state.iTimeDelta > 0.0)
+        if (state.platform_state.timing.time_delta > 0.0)
         {
-          state.iFrameRate = 1.0 / state.iTimeDelta;
+          state.platform_state.timing.frame_rate = 1.0 / state.platform_state.timing.time_delta;
         }
       }
 
       /******************************/
       /* Idle when window minimized */
       /******************************/
-      if (state.window_minimized)
+      if (state.platform_state.window.minimized)
       {
         MSG msg;
         GetMessageA(&msg, 0, 0, 0);
         DispatchMessageA(&msg);
         continue;
+      }
+
+      /******************************/
+      /* Hot Reload Application     */
+      /******************************/
+      {
+        FILETIME ddlFtCurrent = win32_file_mod_time(state.application.dllName);
+
+        if (CompareFileTime(&ddlFtCurrent, &state.application.lastWriteTime) != 0)
+        {
+          win32_load_application(&state);
+        }
       }
 
       /******************************/
@@ -2731,12 +1462,12 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
         if (CompareFileTime(&fs_now, &fs_last) != 0)
         {
-          opengl_shader_load_shader_main(&main_shader, fragment_shader_file_name);
+          /*opengl_shader_load_shader_main(&main_shader, fragment_shader_file_name);*/
           fs_last = fs_now;
 
           /* Reset iTime elapsed seconds on hot reload */
           QueryPerformanceCounter(&time_start);
-          state.iFrame = 0;
+          state.platform_state.timing.frame_count = 0;
         }
       }
 
@@ -2745,26 +1476,24 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       {
         MSG message = {0};
-        u32 i;
 
-        u64 *src = (u64 *)state.keys_is_down;
-        u64 *dst = (u64 *)state.keys_was_down;
+        u64 *src = (u64 *)state.platform_state.input.keyboard.keys_is_down;
+        u64 *dst = (u64 *)state.platform_state.input.keyboard.keys_was_down;
 
-        /* 256 bytes / 8 bytes (u64) = 32 chunks. */
-        for (i = 0; i < 8; ++i)
-        {
-          *dst++ = *src++;
-          *dst++ = *src++;
-          *dst++ = *src++;
-          *dst++ = *src++;
-        }
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
+        *dst++ = *src++;
 
-        state.mouse_left_was_down = state.mouse_left_is_down;
-        state.mouse_right_was_down = state.mouse_right_is_down;
-
-        /* Reset accumulated mouse relative speeds every frame before processing new mouse messages */
-        state.mouse_dx = 0;
-        state.mouse_dy = 0;
+        state.platform_state.input.mouse.keys_was_down[ZAI_MOUSE_KEY_LEFT] = state.platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_LEFT];
+        state.platform_state.input.mouse.keys_was_down[ZAI_MOUSE_KEY_MIDDLE] = state.platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_MIDDLE];
+        state.platform_state.input.mouse.keys_was_down[ZAI_MOUSE_KEY_RIGHT] = state.platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_RIGHT];
+        state.platform_state.input.mouse.dx = 0;
+        state.platform_state.input.mouse.dy = 0;
 
         while (PeekMessageA(&message, state.window_handle, 0, 0, PM_REMOVE))
         {
@@ -2778,8 +1507,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         GetCursorPos(&p);
         ScreenToClient(state.window_handle, &p);
 
-        state.mouse_x = p.x;
-        state.mouse_y = (i32)state.window_height - 1 - p.y;
+        state.platform_state.input.mouse.x = p.x;
+        state.platform_state.input.mouse.y = (i32)state.platform_state.window.height - 1 - p.y;
       }
 
       /******************************/
@@ -2791,13 +1520,13 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         /* If we recieve a WM_DEVICECHANGE message (hardware connected or disconnected to machine)
          * we need to check again the XInput Controller state.
          */
-        if (state.controller.check_needed)
+        if (state.controller_check_needed)
         {
           u8 i = 0;
 
           XINPUT_STATE xinput_state = {0};
 
-          state.controller.connected = 0;
+          state.platform_state.input.controller.connected = 0;
 
           for (i = 0; i < XINPUT_USER_MAX_COUNT; ++i)
           {
@@ -2805,50 +1534,50 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
             if (result == 0)
             {
-              state.controller.id = i;
-              state.controller.connected = 1;
+              state.controller_id = i;
+              state.platform_state.input.controller.connected = 1;
               break;
             }
           }
 
-          state.controller.check_needed = 0;
+          state.controller_check_needed = 0;
         }
 
-        if (state.controller.connected)
+        if (state.platform_state.input.controller.connected)
         {
           XINPUT_STATE xinput_state = {0};
-          u32 result = XInputGetState(state.controller.id, &xinput_state);
+          u32 result = XInputGetState(state.controller_id, &xinput_state);
 
           if (result == 0)
           {
             XINPUT_GAMEPAD *gp = &xinput_state.Gamepad;
-            state.controller.button_a = (gp->wButtons & XINPUT_GAMEPAD_A) ? 1 : 0;
-            state.controller.button_b = (gp->wButtons & XINPUT_GAMEPAD_B) ? 1 : 0;
-            state.controller.button_x = (gp->wButtons & XINPUT_GAMEPAD_X) ? 1 : 0;
-            state.controller.button_y = (gp->wButtons & XINPUT_GAMEPAD_Y) ? 1 : 0;
-            state.controller.shoulder_left = (gp->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) ? 1 : 0;
-            state.controller.shoulder_right = (gp->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) ? 1 : 0;
-            state.controller.dpad_up = (gp->wButtons & XINPUT_GAMEPAD_DPAD_UP) ? 1 : 0;
-            state.controller.dpad_down = (gp->wButtons & XINPUT_GAMEPAD_DPAD_DOWN) ? 1 : 0;
-            state.controller.dpad_left = (gp->wButtons & XINPUT_GAMEPAD_DPAD_LEFT) ? 1 : 0;
-            state.controller.dpad_right = (gp->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) ? 1 : 0;
-            state.controller.start = (gp->wButtons & XINPUT_GAMEPAD_START) ? 1 : 0;
-            state.controller.back = (gp->wButtons & XINPUT_GAMEPAD_BACK) ? 1 : 0;
-            state.controller.stick_left = (gp->wButtons & XINPUT_GAMEPAD_LEFT_THUMB) ? 1 : 0;
-            state.controller.stick_right = (gp->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) ? 1 : 0;
-            state.controller.trigger_left_value = xinput_process_trigger(gp->bLeftTrigger);
-            state.controller.trigger_right_value = xinput_process_trigger(gp->bRightTrigger);
-            state.controller.trigger_left = state.controller.trigger_left_value > 0.0f ? 1 : 0;
-            state.controller.trigger_right = state.controller.trigger_right_value > 0.0f ? 1 : 0;
-            state.controller.stick_left_x = xinput_process_thumbstick(gp->sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
-            state.controller.stick_left_y = xinput_process_thumbstick(gp->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
-            state.controller.stick_right_x = xinput_process_thumbstick(gp->sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
-            state.controller.stick_right_y = xinput_process_thumbstick(gp->sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+            state.platform_state.input.controller.button_a = (gp->wButtons & XINPUT_GAMEPAD_A) ? 1 : 0;
+            state.platform_state.input.controller.button_b = (gp->wButtons & XINPUT_GAMEPAD_B) ? 1 : 0;
+            state.platform_state.input.controller.button_x = (gp->wButtons & XINPUT_GAMEPAD_X) ? 1 : 0;
+            state.platform_state.input.controller.button_y = (gp->wButtons & XINPUT_GAMEPAD_Y) ? 1 : 0;
+            state.platform_state.input.controller.shoulder_left = (gp->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) ? 1 : 0;
+            state.platform_state.input.controller.shoulder_right = (gp->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) ? 1 : 0;
+            state.platform_state.input.controller.dpad_up = (gp->wButtons & XINPUT_GAMEPAD_DPAD_UP) ? 1 : 0;
+            state.platform_state.input.controller.dpad_down = (gp->wButtons & XINPUT_GAMEPAD_DPAD_DOWN) ? 1 : 0;
+            state.platform_state.input.controller.dpad_left = (gp->wButtons & XINPUT_GAMEPAD_DPAD_LEFT) ? 1 : 0;
+            state.platform_state.input.controller.dpad_right = (gp->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) ? 1 : 0;
+            state.platform_state.input.controller.start = (gp->wButtons & XINPUT_GAMEPAD_START) ? 1 : 0;
+            state.platform_state.input.controller.back = (gp->wButtons & XINPUT_GAMEPAD_BACK) ? 1 : 0;
+            state.platform_state.input.controller.stick_left = (gp->wButtons & XINPUT_GAMEPAD_LEFT_THUMB) ? 1 : 0;
+            state.platform_state.input.controller.stick_right = (gp->wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) ? 1 : 0;
+            state.platform_state.input.controller.trigger_left_value = xinput_process_trigger(gp->bLeftTrigger);
+            state.platform_state.input.controller.trigger_right_value = xinput_process_trigger(gp->bRightTrigger);
+            state.platform_state.input.controller.trigger_left = state.platform_state.input.controller.trigger_left_value > 0.0f ? 1 : 0;
+            state.platform_state.input.controller.trigger_right = state.platform_state.input.controller.trigger_right_value > 0.0f ? 1 : 0;
+            state.platform_state.input.controller.stick_left_x = xinput_process_thumbstick(gp->sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+            state.platform_state.input.controller.stick_left_y = xinput_process_thumbstick(gp->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE);
+            state.platform_state.input.controller.stick_right_x = xinput_process_thumbstick(gp->sThumbRX, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
+            state.platform_state.input.controller.stick_right_y = xinput_process_thumbstick(gp->sThumbRY, XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE);
           }
           else
           {
-            state.controller.check_needed = 1;
-            state.controller.connected = 0;
+            state.controller_check_needed = 1;
+            state.platform_state.input.controller.connected = 0;
           }
         }
       }
@@ -2856,7 +1585,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       /* Full or Borderless (F9,F11)*/
       /******************************/
-      if (state.keys_is_down[0x78] && !state.keys_was_down[0x78]) /* F9 */
+      if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F9] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F9]) /* F9 */
       {
         state.borderless_enabled = !state.borderless_enabled;
 
@@ -2872,7 +1601,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         }
       }
 
-      if (state.keys_is_down[0x7A] && !state.keys_was_down[0x7A]) /* F11 */
+      if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F11] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F11])
       {
         state.fullscreen_enabled = !state.fullscreen_enabled;
 
@@ -2891,20 +1620,20 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       /* Handle Window Size changes */
       /******************************/
-      if (state.window_size_changed && !state.screen_recording_enabled)
+      if (state.platform_state.window.size_changed && !state.screen_recording_enabled)
       {
-        state.window_width = state.window_width_pending;
-        state.window_height = state.window_height_pending;
+        state.platform_state.window.width = state.window_width_pending;
+        state.platform_state.window.height = state.window_height_pending;
 
-        glViewport(0, 0, (i32)state.window_width, (i32)state.window_height);
+        glViewport(0, 0, (i32)state.platform_state.window.width, (i32)state.platform_state.window.height);
 
-        state.window_size_changed = 0;
+        state.platform_state.window.size_changed = 0;
       }
 
       /******************************/
       /* Pause Shader (P)           */
       /******************************/
-      if (state.keys_is_down[0x50] && !state.keys_was_down[0x50]) /* P */
+      if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_P] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_P])
       {
         state.shader_paused = !state.shader_paused;
       }
@@ -2912,11 +1641,11 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       /* Reset Timer (R)            */
       /******************************/
-      if (state.keys_is_down[0x52] && !state.keys_was_down[0x52]) /* R */
+      if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_R] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_R])
       {
         /* Reset iTime elapsed seconds on hot reload */
         QueryPerformanceCounter(&time_start);
-        state.iFrame = 0;
+        state.platform_state.timing.frame_count = 0;
       }
 
       /******************************/
@@ -2924,22 +1653,29 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       /******************************/
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-      /*zai_render_grid(&state, &main_shader, main_vao);*/
-      zai_render_terrain(&state);
-      /*zai_render_marching_cubes(&state);*/
-      /*zai_render_surface_nets(&state);*/
-      zai_render_ui(&state);
+      zai_update(&state.platform_state);
 
-      (void)zai_render_grid;
-      (void)zai_render_terrain;
-      (void)zai_render_marching_cubes;
-      (void)zai_render_surface_nets;
-      (void)zai_render_ui;
+      if (state.platform_state.window.size_changed)
+      {
+        state.window_width_pending = state.platform_state.window.width;
+        state.window_height_pending = state.platform_state.window.height;
+      }
+
+      if (state.platform_state.window.clear_color_changed)
+      {
+        glClearColor(state.platform_state.window.clear_color_r, state.platform_state.window.clear_color_g, state.platform_state.window.clear_color_b, state.platform_state.window.clear_color_a);
+        state.platform_state.window.clear_color_changed = 0;
+      }
+
+      if (state.platform_state.window.title_changed)
+      {
+        SetWindowTextA(state.window_handle, state.platform_state.window.title);
+      }
 
       /******************************/
       /* UI Rendering (F1 pressed)  */
       /******************************/
-      if (state.keys_is_down[0x70] && !state.keys_was_down[0x70]) /* F1 */
+      if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F1] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F1])
       {
         state.ui_enabled = !state.ui_enabled;
       }
@@ -3072,21 +1808,23 @@ ZAI_API i32 start(i32 argc, u8 **argv)
     txt.length = 0;                                                                                                                         \
   } while (0)
 
-        zai_sb_f64(&t, state.iFrameRate, 2);
+        zai_sb_f64(&t, state.platform_state.timing.frame_rate, 2);
         CALC_GLYPH(t, default_color);
 
         /* Control Target FPS with arrow keys (0 = unlimited) */
         {
           u32 txt_length_temp = 0;
 
-          if (state.keys_is_down[0x25] && !state.keys_was_down[0x25]) /* Left Arrow */
+          if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_LEFT] &&
+              !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_LEFT])
           {
-            state.target_frames_per_second -= state.target_frames_per_second < 10 ? state.target_frames_per_second : 10;
+            state.platform_state.timing.frame_rate_target -= state.platform_state.timing.frame_rate_target < 10 ? state.platform_state.timing.frame_rate_target : 10;
           }
 
-          if (state.keys_is_down[0x27] && !state.keys_was_down[0x27]) /* Right Arrow */
+          if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_RIGHT] &&
+              !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_RIGHT])
           {
-            state.target_frames_per_second += 10;
+            state.platform_state.timing.frame_rate_target += 10;
           }
 
           offset_x = (u16)(offset_x_start + advance_x * (text_start_col - 1));
@@ -3094,7 +1832,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
           glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "<", &offset_x, &offset_y, pack_rgb565(255, 0, 0), GLYPH_STATE_BLINK, font_scale);
           offset_y = (u16)(offset_y - advance_y);
 
-          zai_sb_f64(&t, state.target_frames_per_second, 2);
+          zai_sb_f64(&t, state.platform_state.timing.frame_rate_target, 2);
           txt_length_temp = t.length;
           CALC_GLYPH(t, default_color);
 
@@ -3102,25 +1840,25 @@ ZAI_API i32 start(i32 argc, u8 **argv)
           glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, ">", &offset_x, &offset_y, pack_rgb565(0, 255, 0), GLYPH_STATE_BLINK | GLYPH_STATE_HFLIP, font_scale);
         }
 
-        zai_sb_f64(&t, state.iFrameRateRaw, 2);
+        zai_sb_f64(&t, state.platform_state.timing.frame_rate_raw, 2);
         CALC_GLYPH(t, default_color);
-        zai_sb_i32(&t, state.iFrame);
+        zai_sb_i32(&t, state.platform_state.timing.frame_count);
         CALC_GLYPH(t, default_color);
-        zai_sb_f64(&t, state.iTimeDelta, 6);
+        zai_sb_f64(&t, state.platform_state.timing.time_delta, 6);
         CALC_GLYPH(t, default_color);
-        zai_sb_f64(&t, state.iTime, 6);
+        zai_sb_f64(&t, state.platform_state.timing.time_elapsed, 6);
         CALC_GLYPH(t, default_color);
-        zai_sb_i32(&t, state.mouse_x);
+        zai_sb_i32(&t, state.platform_state.input.mouse.x);
         zai_sb_s8(&t, "/");
-        zai_sb_i32(&t, state.mouse_y);
+        zai_sb_i32(&t, state.platform_state.input.mouse.y);
         CALC_GLYPH(t, default_color);
-        zai_sb_i32(&t, state.mouse_dx);
+        zai_sb_i32(&t, state.platform_state.input.mouse.dx);
         zai_sb_s8(&t, "/");
-        zai_sb_i32(&t, state.mouse_dy);
+        zai_sb_i32(&t, state.platform_state.input.mouse.dy);
         CALC_GLYPH(t, default_color);
-        zai_sb_i32(&t, (i32)state.window_width);
+        zai_sb_i32(&t, (i32)state.platform_state.window.width);
         zai_sb_s8(&t, "/");
-        zai_sb_i32(&t, (i32)state.window_height);
+        zai_sb_i32(&t, (i32)state.platform_state.window.height);
         CALC_GLYPH(t, default_color);
         zai_sb_i32(&t, thread_count);
         CALC_GLYPH(t, default_color);
@@ -3139,38 +1877,38 @@ ZAI_API i32 start(i32 argc, u8 **argv)
 
         offset_y = (u16)(offset_y + advance_y * 3);
 
-        if (state.controller.connected)
+        if (state.platform_state.input.controller.connected)
         {
           zai_sb_s8(&t, "CONNECTED");
           CALC_GLYPH(t, pack_rgb565(0, 255, 0));
-          zai_sb_f64(&t, state.controller.stick_left_x, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.stick_left_x, 6);
           zai_sb_s8(&t, "/");
-          zai_sb_f64(&t, state.controller.stick_left_y, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.stick_left_y, 6);
           CALC_GLYPH(t, default_color);
-          zai_sb_f64(&t, state.controller.stick_right_x, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.stick_right_x, 6);
           zai_sb_s8(&t, "/");
-          zai_sb_f64(&t, state.controller.stick_right_y, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.stick_right_y, 6);
           CALC_GLYPH(t, default_color);
-          zai_sb_f64(&t, state.controller.trigger_left_value, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.trigger_left_value, 6);
           zai_sb_s8(&t, "/");
-          zai_sb_f64(&t, state.controller.trigger_right_value, 6);
+          zai_sb_f64(&t, state.platform_state.input.controller.trigger_right_value, 6);
           CALC_GLYPH(t, default_color);
 
           zai_sb_s8(&t, "");
 
           /* clang-format off */
-          if (state.controller.button_a)       zai_sb_s8(&t, "A ");
-          if (state.controller.button_b)       zai_sb_s8(&t, "B ");
-          if (state.controller.button_x)       zai_sb_s8(&t, "X ");
-          if (state.controller.button_y)       zai_sb_s8(&t, "Y ");
-          if (state.controller.dpad_left)      zai_sb_s8(&t, "DLEFT ");
-          if (state.controller.dpad_right)     zai_sb_s8(&t, "DRIGHT ");
-          if (state.controller.dpad_up)        zai_sb_s8(&t, "DUP ");
-          if (state.controller.dpad_down)      zai_sb_s8(&t, "DDOWN ");
-          if (state.controller.stick_left)     zai_sb_s8(&t, "LSTICK ");
-          if (state.controller.stick_right)    zai_sb_s8(&t, "RSTICK ");
-          if (state.controller.shoulder_left)  zai_sb_s8(&t, "LSHOULDER ");
-          if (state.controller.shoulder_right) zai_sb_s8(&t, "RSHOULDER ");
+          if (state.platform_state.input.controller.button_a)       zai_sb_s8(&t, "A ");
+          if (state.platform_state.input.controller.button_b)       zai_sb_s8(&t, "B ");
+          if (state.platform_state.input.controller.button_x)       zai_sb_s8(&t, "X ");
+          if (state.platform_state.input.controller.button_y)       zai_sb_s8(&t, "Y ");
+          if (state.platform_state.input.controller.dpad_left)      zai_sb_s8(&t, "DLEFT ");
+          if (state.platform_state.input.controller.dpad_right)     zai_sb_s8(&t, "DRIGHT ");
+          if (state.platform_state.input.controller.dpad_up)        zai_sb_s8(&t, "DUP ");
+          if (state.platform_state.input.controller.dpad_down)      zai_sb_s8(&t, "DDOWN ");
+          if (state.platform_state.input.controller.stick_left)     zai_sb_s8(&t, "LSTICK ");
+          if (state.platform_state.input.controller.stick_right)    zai_sb_s8(&t, "RSTICK ");
+          if (state.platform_state.input.controller.shoulder_left)  zai_sb_s8(&t, "LSHOULDER ");
+          if (state.platform_state.input.controller.shoulder_right) zai_sb_s8(&t, "RSHOULDER ");
           /* clang-format on */
 
           CALC_GLYPH(t, default_color);
@@ -3183,50 +1921,12 @@ ZAI_API i32 start(i32 argc, u8 **argv)
           offset_y = (u16)(offset_y + advance_y * 4);
         }
 
-        if (main_shader.header.had_failure)
-        {
-          zai_sb_s8(&t, zai_opengl_shader_info_log);
-          CALC_GLYPH(t, pack_rgb565(255, 0, 0));
-        }
-        else
-        {
-          zai_sb_s8(&t, "NONE");
-          CALC_GLYPH(t, pack_rgb565(0, 255, 0));
-        }
+        zai_sb_s8(&t, "NONE");
+        CALC_GLYPH(t, pack_rgb565(0, 255, 0));
 
 #undef CALC_GLYPH
 
-        /* Show grid memory */
-        {
-          u16 offset_memory_x = 400;
-          u16 offset_memory_y = 10;
-
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "MEM BRICK MAP: \n", &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "MEM ATLAS    : \n", &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "BRICK COUNT  : \n", &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "ATLAS DIM    : \n", &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, "MAX 3D TEXRES: ", &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-
-          t.length = 0;
-          zai_sb_f64(&t, (f64)state.mem_brick_map_bytes / 1024.0 / 1024.0, 4);
-          zai_sb_s8(&t, "\n");
-          zai_sb_f64(&t, (f64)state.mem_atlas_bytes / 1024.0 / 1024.0, 4);
-          zai_sb_s8(&t, "\n");
-          zai_sb_i32(&t, (i32)state.grid_active_brick_count);
-          zai_sb_s8(&t, "\n");
-          zai_sb_i32(&t, (i32)state.grid_atlas_dimensions.x);
-          zai_sb_s8(&t, "/");
-          zai_sb_i32(&t, (i32)state.grid_atlas_dimensions.y);
-          zai_sb_s8(&t, "/");
-          zai_sb_i32(&t, (i32)state.grid_atlas_dimensions.z);
-          zai_sb_s8(&t, "\n");
-          zai_sb_i32(&t, (i32)state.gl_max_3d_texture_size);
-
-          offset_memory_y = 10;
-          glyph_add(glyph_buffer, GLYPH_BUFFER_SIZE, &glyph_buffer_count, t.buffer, &offset_memory_x, &offset_memory_y, pack_rgb565(255, 255, 255), GLYPH_STATE_NONE, font_scale);
-        }
-
-        /* Show grid memory */
+        /* Show profiler entries */
         {
           u16 offset_memory_x = 300;
           u16 offset_memory_y = 150;
@@ -3262,8 +1962,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         (void)GL_DYNAMIC_DRAW;
 
         glUseProgram(font_shader.header.program);
-        glUniform3f(font_shader.loc_iResolution, (f32)state.window_width, (f32)state.window_height, 1.0f);
-        glUniform1f(font_shader.loc_iTime, (f32)state.iTime);
+        glUniform3f(font_shader.loc_iResolution, (f32)state.platform_state.window.width, (f32)state.platform_state.window.height, 1.0f);
+        glUniform1f(font_shader.loc_iTime, (f32)state.platform_state.timing.time_elapsed);
         glUniform4f(font_shader.loc_iTextureInfo, ZAI_FONT_WIDTH, ZAI_FONT_HEIGHT, ZAI_FONT_GLYPH_WIDTH, ZAI_FONT_GLYPH_HEIGHT);
         glUniform1i(font_shader.loc_iTexture, 0);
         glUniform1f(font_shader.loc_iFontScale, font_scale);
@@ -3291,7 +1991,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         static u8 *framebuffer;
         static void *video_file_handle;
 
-        if (state.keys_is_down[0x71] && !state.keys_was_down[0x71]) /* F2 */
+        if (state.platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F2] && !state.platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F2])
         {
           state.screen_recording_enabled = !state.screen_recording_enabled;
         }
@@ -3310,32 +2010,32 @@ ZAI_API i32 start(i32 argc, u8 **argv)
             t.buffer = buffer;
 
             /* Create recording output file name.
-             * Format:  zai_capture_<window_width>x<window_height>_<target_frames_per_second>.raw
+             * Format:  zai_capture_<window_width>x<window_height>_<platform_state.timing.frame_rate_target>.raw
              * Example: zai_capture_800x600_60.raw
              */
             zai_sb_s8(&t, "zai_capture_");
-            zai_sb_i32(&t, (i32)(state.window_width));
+            zai_sb_i32(&t, (i32)(state.platform_state.window.width));
             zai_sb_s8(&t, "x");
-            zai_sb_i32(&t, (i32)(state.window_height));
+            zai_sb_i32(&t, (i32)(state.platform_state.window.height));
             zai_sb_s8(&t, "_");
-            zai_sb_i32(&t, (i32)(state.target_frames_per_second));
+            zai_sb_i32(&t, (i32)(state.platform_state.timing.frame_rate_target));
             zai_sb_s8(&t, ".raw");
 
-            framebuffer = VirtualAlloc(0, state.window_width * state.window_height * 3, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            framebuffer = VirtualAlloc(0, state.platform_state.window.width * state.platform_state.window.height * 3, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
             video_file_handle = CreateFileA(t.buffer, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 
             glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
             state.screen_recording_initialized = 1;
           }
-          glReadPixels(0, 0, (i32)state.window_width, (i32)state.window_height, GL_RGB, GL_UNSIGNED_BYTE, framebuffer);
+          glReadPixels(0, 0, (i32)state.platform_state.window.width, (i32)state.platform_state.window.height, GL_RGB, GL_UNSIGNED_BYTE, framebuffer);
 
-          WriteFile(video_file_handle, framebuffer, state.window_width * state.window_height * 3, &written, 0);
+          WriteFile(video_file_handle, framebuffer, state.platform_state.window.width * state.platform_state.window.height * 3, &written, 0);
 
           /* Render recording indicator */
           glUseProgram(recording_shader.header.program);
-          glUniform3f(recording_shader.loc_iResolution, (f32)state.window_width, (f32)state.window_height, 1.0f);
-          glUniform1f(recording_shader.loc_iTime, (f32)state.iTime);
+          glUniform3f(recording_shader.loc_iResolution, (f32)state.platform_state.window.width, (f32)state.platform_state.window.height, 1.0f);
+          glUniform1f(recording_shader.loc_iTime, (f32)state.platform_state.timing.time_elapsed);
           glBindVertexArray(main_vao);
           glDrawArrays(GL_TRIANGLES, 0, 3);
         }
@@ -3353,19 +2053,19 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       {
         i64 time_render_now;
         QueryPerformanceCounter(&time_render_now);
-        state.iFrameRateRaw = 1.0 / ((f64)(time_render_now - time_last) / (f64)perf_freq);
+        state.platform_state.timing.frame_rate_raw = 1.0 / ((f64)(time_render_now - time_last) / (f64)perf_freq);
       }
 
       /******************************/
       /* Frame Rate Limiting        */
       /******************************/
-      if (state.target_frames_per_second > 0)
+      if (state.platform_state.timing.frame_rate_target > 0)
       {
         i64 time_end;
 
         f64 frame_time;
         f64 remaining;
-        f64 target_frame_time = 1.0 / (f64)state.target_frames_per_second;
+        f64 target_frame_time = 1.0 / (f64)state.platform_state.timing.frame_rate_target;
 
         QueryPerformanceCounter(&time_end);
 
@@ -3403,7 +2103,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         time_start_fps_cap = time_end;
       }
 
-      state.iFrame++;
+      state.platform_state.timing.frame_count++;
     }
   }
 

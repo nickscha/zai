@@ -328,7 +328,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
  * # [SECTION] OpenGL Shader Compilation and Creation
  * #############################################################################
  */
-typedef void (*zai_opengl_print)(s8 *string);
+typedef u8 (*zai_opengl_print)(s8 *string);
 
 static s8 zai_opengl_shader_info_log[1024];
 
