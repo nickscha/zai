@@ -36,7 +36,7 @@ ZAI_API void zai_camera_update(zai_camera *cam)
   cam->up = zai_vec3_normalize(zai_vec3_cross(cam->right, cam->front));
 }
 
-ZAI_API zai_camera zai_camera_init(void)
+ZAI_API ZAI_INLINE zai_camera zai_camera_init(void)
 {
   zai_camera cam = {0};
 
