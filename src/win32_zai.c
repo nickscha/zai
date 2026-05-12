@@ -1777,7 +1777,7 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
     camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
   }
 
-  if (state->mouse_left_is_down && !state->mouse_left_was_down)
+  if (state->mouse_right_is_down && !state->mouse_right_was_down)
   {
     mouse_attached = !mouse_attached;
   }
