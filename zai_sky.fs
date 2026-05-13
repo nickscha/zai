@@ -54,6 +54,20 @@ vec3 getSky(vec3 rd)
     sky += sunColor * sunGlow * 0.6;
     sky += sunColor * sunDisk * 8.0;
     
+    /* Moon */
+    float nightAmount = 1.0 - dayAmount;
+    vec3 moonDir = -sunDir;
+
+    float moonAmount = max(dot(rd, moonDir), 0.0);
+
+    float moonDisk = pow(moonAmount, 1500.0);
+    float moonGlow = pow(moonAmount, 20.0);
+
+    vec3 moonColor = vec3(0.8, 0.85, 1.0);
+
+    sky += moonColor * moonGlow * 0.08 * nightAmount;
+    sky += moonColor * moonDisk * 2.5 * nightAmount;
+    
     return sky;
 }
 

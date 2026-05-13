@@ -43,9 +43,14 @@ vec3 getFogColor(vec3 rd)
     float horizonGlow = pow(1.0 - h, 5.0);
     sky += sunsetHorizon * horizonGlow * sunsetAmount * 0.5;
 
-    float sunAmount = max(dot(rd, sunDir), 0.0);
-    
-    vec3 sunColor = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.45, 0.20), sunsetAmount);
+    /* Moon */
+    float nightAmount = 1.0 - dayAmount;
+    vec3 moonDir = -sunDir;
+    float moonAmount = max(dot(rd, moonDir), 0.0);
+    float moonGlow = pow(moonAmount, 20.0);
+    vec3 moonColor = vec3(0.8, 0.85, 1.0);
+
+    sky += moonColor * moonGlow * 0.08 * nightAmount;
 
     return sky;
 }
