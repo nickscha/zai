@@ -1637,7 +1637,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   }
 
   /* Update camera */
-  zai_update_camera_movement(state, &camera, 100.0f);
+  zai_update_camera_movement(state, &camera, 1000.0f);
 
   camera_basis[0] = camera.right.x;
   camera_basis[1] = camera.right.y;
