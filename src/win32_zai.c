@@ -1651,10 +1651,16 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
   {
     static u8 move_sun = 0;
+    static f32 move_val = 0.0f;
 
     if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_M] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_M])
     {
       move_sun = !move_sun;
+
+      if (move_sun)
+      {
+        move_val = 0.0f;
+      }
     }
 
     sun_dir_x = 0.0f;
@@ -1663,12 +1669,36 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
     if (move_sun)
     {
+
       f32 t = (f32)state->platform_state.timing.time_elapsed * 0.5f;
       f32 len;
 
+      (void)t;
+
+      if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_UP])
+      {
+        move_val += (f32)state->platform_state.timing.time_delta;
+      }
+
+      if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_DOWN])
+      {
+        move_val -= (f32)state->platform_state.timing.time_delta;
+
+        if (move_val < 0.0f)
+        {
+          move_val = 0.0f;
+        }
+      }
+
+      sun_dir_x = 0.0f;
+      sun_dir_y = zai_sinf(move_val);
+      sun_dir_z = -zai_cosf(move_val);
+
+      /*
       sun_dir_x = 0.0f;
       sun_dir_y = zai_sinf(t);
       sun_dir_z = -zai_cosf(t);
+      */
 
       len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
 
