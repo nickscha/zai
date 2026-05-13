@@ -1366,7 +1366,8 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
   glDepthFunc(GL_LESS);
 }
 
-#define GRID_RES 129 /* 65 */
+/* 65 */
+#define GRID_RES 129
 #define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
