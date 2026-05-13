@@ -72,6 +72,11 @@ vec3 getSky(vec3 rd)
     float mie = pow(sunAmount, 8.0);
     sky += sunColor * mie * 0.25;
     
+    /* Milky Way band */
+    float milky = pow(1.0 - abs(rd.y - 0.15), 6.0);
+    milky *= nightAmount;
+    sky += vec3(0.08, 0.09, 0.12) * milky;
+    
     return sky;
 }
 
