@@ -78,12 +78,11 @@ void main() {
     float scale = iBaseScale * exp2(float(lod));
     float spacing = scale / iBaseScale;
 
-    float biasFactor = 0.95; 
-    
     vec3 camTerrain = terrainMap(iCamera.xz);
     float heightAboveGround = max(0.0, iCamera.y - camTerrain.x);
-    float biasWeight = clamp(1.0 - (heightAboveGround / 600.0), 0.0, 1.0);
-    
+
+    float biasFactor = 0.95; 
+    float biasWeight = clamp(1.0 - (heightAboveGround / 600.0), 0.0, 1.0);   
     vec2 forwardBias = iViewDir.xz * (scale * biasFactor) * biasWeight;
 
     vec2 posToSnap = iCamera.xz + forwardBias;
@@ -105,6 +104,17 @@ void main() {
             gl_Position = vec4(0.0, 0.0, 2.0, 0.0);
             return;
         }
+    }
+
+    /* Morphing */
+    vec2 alpha = abs(uv - 0.5) * 2.0; 
+    float maxAlpha = max(alpha.x, alpha.y);
+    float transition = smoothstep(0.85, 0.98, maxAlpha);
+
+    if (transition > 0.0) {
+        float coarseSpacing = spacing * 2.0;
+        vec2 gridSnappedXZ = worldXZ - mod(worldXZ, coarseSpacing);
+        worldXZ = mix(worldXZ, gridSnappedXZ, transition);
     }
 
     vec3 terrain = terrainMap(worldXZ);
