@@ -885,6 +885,22 @@ typedef struct shader_sky
 
 } shader_sky;
 
+typedef struct shader_terrain
+{
+  shader_header header;
+
+  i32 loc_iResolution;
+  i32 loc_camera;
+  i32 loc_sun_dir;
+  i32 loc_camera_view_dir;
+  i32 loc_base_scale;
+  i32 loc_mvp;
+  i32 loc_texture_diffuse;
+  i32 loc_texture_normal;
+  i32 loc_texture_displacement;
+
+} shader_terrain;
+
 static u32 opengl_failed_function_load_count = 0;
 
 ZAI_API PROC win32_opengl_load_function(s8 *name)
@@ -1332,8 +1348,8 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
   }
 
   /* Render */
-  glDepthMask(GL_FALSE);
   glDisable(GL_DEPTH_TEST);
+  glDepthMask(GL_FALSE);
 
   glUseProgram(sky_shader.header.program);
   glBindVertexArray(sky_vao);
@@ -1345,9 +1361,261 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
 
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
-  glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LEQUAL);
   glDepthMask(GL_TRUE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+}
+
+#define GRID_RES 129 /* 65 */
+#define MAX_VERTS (GRID_RES * GRID_RES)
+#define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
+
+ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir, f32 camera_basis[9])
+{
+  static u8 terrain_initialized = 0;
+  static shader_terrain terrain_shader = {0};
+
+  static zai_vec2 gridVerts[MAX_VERTS];
+  static u32 gridIndices[MAX_INDICES];
+  static i32 gridIndexCount = 0;
+
+  static u32 terrain_vao;
+  static u32 terrain_vbo;
+  static u32 terrain_ibo;
+
+  static u32 tex_diffuse;
+  static u32 tex_normal;
+  static u32 tex_displacement;
+
+  static i32 terrain_lod_count = 10;
+  static i32 terrain_base_scale = 128;
+
+  if (!terrain_initialized)
+  {
+    u32 size_code_vertex = 0;
+    u32 size_code_fragment = 0;
+    u8 *shader_code_vertex = win32_file_read("zai_terrain.vs", &size_code_vertex);
+    u8 *shader_code_fragment = win32_file_read("zai_terrain.fs", &size_code_fragment);
+
+    ZAI_PROFILER_BEGIN(setup_terrain);
+
+    if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+    {
+      win32_print("Cannot load terrain shader files!\n");
+      return;
+    }
+
+    if (opengl_shader_load(&terrain_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+    {
+      terrain_shader.loc_iResolution = glGetUniformLocation(terrain_shader.header.program, "iResolution");
+      terrain_shader.loc_camera = glGetUniformLocation(terrain_shader.header.program, "iCamera");
+      terrain_shader.loc_sun_dir = glGetUniformLocation(terrain_shader.header.program, "sunDir");
+      terrain_shader.loc_camera_view_dir = glGetUniformLocation(terrain_shader.header.program, "iViewDir");
+      terrain_shader.loc_base_scale = glGetUniformLocation(terrain_shader.header.program, "iBaseScale");
+      terrain_shader.loc_mvp = glGetUniformLocation(terrain_shader.header.program, "MVP");
+      terrain_shader.loc_texture_diffuse = glGetUniformLocation(terrain_shader.header.program, "tex_diffuse");
+      terrain_shader.loc_texture_normal = glGetUniformLocation(terrain_shader.header.program, "tex_normal");
+      terrain_shader.loc_texture_displacement = glGetUniformLocation(terrain_shader.header.program, "tex_displacement");
+    }
+    else
+    {
+      win32_print("Cannot compile shaders!\n");
+    }
+
+    VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+    VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+
+    /* Generate Grid */
+    {
+      i32 x;
+      i32 z;
+      i32 i;
+
+      /* UV grid */
+      for (z = 0; z < GRID_RES; ++z)
+      {
+        for (x = 0; x < GRID_RES; ++x)
+        {
+          i = z * GRID_RES + x;
+          gridVerts[i].x = (f32)x / (f32)(GRID_RES - 1);
+          gridVerts[i].y = (f32)z / (f32)(GRID_RES - 1);
+        }
+      }
+
+      /* indices */
+      i = 0;
+
+      for (z = 0; z < GRID_RES - 1; ++z)
+      {
+        for (x = 0; x < GRID_RES - 1; ++x)
+        {
+          u32 i0 = (u32)(z * GRID_RES + x);
+          u32 i1 = i0 + 1;
+          u32 i2 = i0 + GRID_RES;
+          u32 i3 = i2 + 1;
+
+          gridIndices[i++] = i0;
+          gridIndices[i++] = i2;
+          gridIndices[i++] = i1;
+
+          gridIndices[i++] = i1;
+          gridIndices[i++] = i2;
+          gridIndices[i++] = i3;
+        }
+      }
+
+      gridIndexCount = i;
+    }
+
+    glGenVertexArrays(1, &terrain_vao);
+    glBindVertexArray(terrain_vao);
+
+    glGenBuffers(1, &terrain_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, terrain_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(gridVerts), gridVerts, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(zai_vec2), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    glGenBuffers(1, &terrain_ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
+
+    /* Diffuse */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_diff_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read diffuse texture!\n");
+      }
+
+      glGenTextures(1, &tex_diffuse);
+      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE0);
+    }
+
+    /* Normal */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_nor_dx_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read normal texture!\n");
+      }
+
+      glGenTextures(1, &tex_normal);
+      glBindTexture(GL_TEXTURE_2D, tex_normal);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE1);
+    }
+
+    /* Displacement */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_disp_1k.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read displacement texture!\n");
+      }
+
+      glGenTextures(1, &tex_displacement);
+      glBindTexture(GL_TEXTURE_2D, tex_displacement);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, (i32)w, (i32)h, 0, GL_RGB, GL_UNSIGNED_BYTE, file_contents);
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glActiveTexture(GL_TEXTURE2);
+    }
+
+    terrain_initialized = 1;
+
+    ZAI_PROFILER_END(setup_terrain);
+  }
+
+  /* Render */
+  ZAI_PROFILER_BEGIN(render_terrain);
+  {
+    static u8 wireframe_enabled = 0;
+
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_TAB] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_TAB])
+    {
+      wireframe_enabled = !wireframe_enabled;
+    }
+
+    (void)camera_basis;
+
+    {
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 10000.0f);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->front), camera->up);
+      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+      glEnable(GL_DEPTH_TEST);
+      glDepthMask(GL_TRUE);
+      glDepthFunc(GL_LESS);
+
+      glEnable(GL_CULL_FACE);
+      glCullFace(GL_BACK);
+
+      glUseProgram(terrain_shader.header.program);
+      glUniform3f(terrain_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+      glUniform3f(terrain_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
+      glUniform3f(terrain_shader.loc_camera_view_dir, camera->front.x, camera->front.y, camera->front.z);
+      glUniform3f(terrain_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
+
+      glUniform1f(terrain_shader.loc_base_scale, (f32)terrain_base_scale);
+      glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+      glBindVertexArray(terrain_vao);
+
+      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
+
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, tex_diffuse);
+      glUniform1i(terrain_shader.loc_texture_diffuse, 0);
+
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, tex_normal);
+      glUniform1i(terrain_shader.loc_texture_normal, 1);
+
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, tex_displacement);
+      glUniform1i(terrain_shader.loc_texture_displacement, 2);
+
+      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, terrain_lod_count);
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glDisable(GL_DEPTH_TEST);
+      glDisable(GL_CULL_FACE);
+    }
+  }
+  ZAI_PROFILER_END(render_terrain);
 }
 
 ZAI_API void zai_render_scene(win32_zai_state *state)
@@ -1363,7 +1631,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   if (!scene_initialized)
   {
     camera = zai_camera_init();
-    camera.position.y = 1.0f;
+    camera.position.y = 600.0f;
 
     scene_initialized = 1;
   }
@@ -1389,6 +1657,9 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
     sun_dir_y = zai_sinf(t);
     sun_dir_z = -zai_cosf(t);
 
+    sun_dir_y = 0.0f;
+    sun_dir_z = -1.0f;
+
     len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
 
     sun_dir_x /= len;
@@ -1398,6 +1669,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
   /* Render */
   zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+  zai_render_terrain(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
 }
 
 /* #############################################################################

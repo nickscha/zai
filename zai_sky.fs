@@ -9,19 +9,8 @@ uniform vec3 cameraPos;
 uniform mat3 cameraBasis; /* right, up, forward */
 uniform vec3 sunDir;
 
-float hash(vec2 p)
-{
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-
-float stars(vec2 uv)
-{
-    vec2 gv = fract(uv * 450.0);
-    vec2 id = floor(uv * 450.0);
-    float n = hash(id);
-    float star = step(0.9975, n);
-    float d = length(gv - 0.5);
-    return star * smoothstep(0.05, 0.0, d);
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
 vec3 getSky(vec3 rd)
@@ -64,11 +53,7 @@ vec3 getSky(vec3 rd)
 
     sky += sunColor * sunGlow * 0.6;
     sky += sunColor * sunDisk * 8.0;
-
-    float nightAmount = smoothstep(0.0, -0.15, sunDir.y);
-
-    sky += vec3(stars(vUV)) * nightAmount;
-
+    
     return sky;
 }
 
@@ -81,6 +66,9 @@ void main()
     vec3 sky = getSky(rd);
 
     sky = pow(sky, vec3(1.0 / 2.2));
+
+    float noise = hash(gl_FragCoord.xy);
+    sky += (noise - 0.5) / 255.0;
 
     FragColor = vec4(sky, 1.0);
 }
