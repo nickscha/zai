@@ -12,6 +12,7 @@ LICENSE
 #include "zai_string_builder.h"
 #include "zai_profiler.h"
 #include "zai_opengl.h"
+#include "zai_camera.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
@@ -873,6 +874,17 @@ typedef struct shader_recording
 
 } shader_recording;
 
+typedef struct shader_sky
+{
+  shader_header header;
+
+  i32 loc_iResolution;
+  i32 loc_camera;
+  i32 loc_camera_basis;
+  i32 loc_sun_dir;
+
+} shader_sky;
+
 static u32 opengl_failed_function_load_count = 0;
 
 ZAI_API PROC win32_opengl_load_function(s8 *name)
@@ -1220,6 +1232,175 @@ ZAI_API void opengl_shader_load_shader_recording(shader_recording *shader)
 }
 
 /* #############################################################################
+ * # [SECTION] Test renderer prototype
+ * #############################################################################
+ */
+ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_camera *camera, f32 camera_speed)
+{
+  static u8 mouse_attached = 0;
+
+  f32 cam_speed = camera_speed * (f32)state->platform_state.timing.time_delta;
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_W])
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_S])
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_A])
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->right, cam_speed));
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_D])
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->right, cam_speed));
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_SPACE])
+  {
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_CONTROL]) /* control */
+  {
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
+  }
+
+  if (state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_RIGHT] && !state->platform_state.input.mouse.keys_was_down[ZAI_MOUSE_KEY_RIGHT])
+  {
+    mouse_attached = !mouse_attached;
+  }
+
+  if (mouse_attached)
+  {
+    f32 mouseSensitivity = 0.1f;
+    camera->yaw += zai_minf((f32)state->platform_state.input.mouse.dx * mouseSensitivity, 89.0f);
+    camera->pitch += zai_maxf((f32)state->platform_state.input.mouse.dy * mouseSensitivity, -89.0f);
+    camera->pitch = zai_clampf(camera->pitch, -89.0f, 89.0f);
+
+    if (state->platform_state.input.mouse.scroll != 0.0f)
+    {
+      camera->fov = zai_clampf(camera->fov - (state->platform_state.input.mouse.scroll * 2), 1.0f, 179.0f);
+    }
+  }
+
+  zai_camera_update(camera);
+}
+
+ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir, f32 camera_basis[9])
+{
+  static u8 sky_initialized = 0;
+  static shader_sky sky_shader = {0};
+  static u32 sky_vao;
+
+  if (!sky_initialized)
+  {
+    u32 size_code_vertex = 0;
+    u32 size_code_fragment = 0;
+    u8 *shader_code_vertex = win32_file_read("zai_sky.vs", &size_code_vertex);
+    u8 *shader_code_fragment = win32_file_read("zai_sky.fs", &size_code_fragment);
+
+    if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+    {
+      win32_print("Cannot load sky shader files!\n");
+      return;
+    }
+
+    if (opengl_shader_load(&sky_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+    {
+      sky_shader.loc_iResolution = glGetUniformLocation(sky_shader.header.program, "iResolution");
+      sky_shader.loc_camera = glGetUniformLocation(sky_shader.header.program, "cameraPos");
+      sky_shader.loc_camera_basis = glGetUniformLocation(sky_shader.header.program, "cameraBasis");
+      sky_shader.loc_sun_dir = glGetUniformLocation(sky_shader.header.program, "sunDir");
+    }
+    else
+    {
+      win32_print("Cannot compile shaders!\n");
+    }
+
+    VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+    VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+
+    glGenVertexArrays(1, &sky_vao);
+
+    sky_initialized = 1;
+  }
+
+  /* Render */
+  glDepthMask(GL_FALSE);
+  glDisable(GL_DEPTH_TEST);
+
+  glUseProgram(sky_shader.header.program);
+  glBindVertexArray(sky_vao);
+
+  glUniform3f(sky_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+  glUniform3f(sky_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
+  glUniform3f(sky_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
+  glUniformMatrix3fv(sky_shader.loc_camera_basis, 1, GL_FALSE, camera_basis);
+
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LEQUAL);
+  glDepthMask(GL_TRUE);
+}
+
+ZAI_API void zai_render_scene(win32_zai_state *state)
+{
+  static u8 scene_initialized = 0;
+  static zai_camera camera = {0};
+  static f32 camera_basis[9];
+
+  f32 sun_dir_x;
+  f32 sun_dir_y;
+  f32 sun_dir_z;
+
+  if (!scene_initialized)
+  {
+    camera = zai_camera_init();
+    camera.position.y = 1.0f;
+
+    scene_initialized = 1;
+  }
+
+  /* Update camera */
+  zai_update_camera_movement(state, &camera, 100.0f);
+
+  camera_basis[0] = camera.right.x;
+  camera_basis[1] = camera.right.y;
+  camera_basis[2] = camera.right.z;
+  camera_basis[3] = camera.up.x;
+  camera_basis[4] = camera.up.y;
+  camera_basis[5] = camera.up.z;
+  camera_basis[6] = camera.front.x;
+  camera_basis[7] = camera.front.y;
+  camera_basis[8] = camera.front.z;
+
+  {
+    f32 t = (f32)state->platform_state.timing.time_elapsed * 0.5f;
+    f32 len;
+
+    sun_dir_x = 0.0f;
+    sun_dir_y = zai_sinf(t);
+    sun_dir_z = -zai_cosf(t);
+
+    len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
+
+    sun_dir_x /= len;
+    sun_dir_y /= len;
+    sun_dir_z /= len;
+  }
+
+  /* Render */
+  zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+}
+
+/* #############################################################################
  * # [SECTION] Main Entry Point
  * #############################################################################
  */
@@ -1451,6 +1632,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         if (CompareFileTime(&ddlFtCurrent, &state.application.lastWriteTime) != 0)
         {
           win32_load_application(&state);
+          state.platform_state.application_initialized = 0;
         }
       }
 
@@ -1654,6 +1836,8 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
       zai_update(&state.platform_state);
+
+      zai_render_scene(&state);
 
       if (state.platform_state.window.size_changed)
       {

@@ -66,6 +66,7 @@
 #define GL_SRC_ALPHA 0x0302
 #define GL_ONE_MINUS_SRC_ALPHA 0x0303
 #define GL_DEPTH_TEST 0x0B71
+#define GL_LEQUAL 0x0203
 #define GL_LINE 0x1B01
 #define GL_FILL 0x1B02
 #define GL_BACK 0x0405
@@ -126,6 +127,12 @@ static PFNGLCULLFACEPROC glCullFace;
 
 typedef void (*PFNGLDRAWELEMENTSPROC)(u32 mode, i32 count, i32 type, void *indices);
 static PFNGLDRAWELEMENTSPROC glDrawElements;
+
+typedef void (*PFNGLDEPTHMASKPROC)(u8 flag);
+static PFNGLDEPTHMASKPROC glDepthMask;
+
+typedef void (*PFNGLDEPTHFUNCPROC)(i32 func);
+static PFNGLDEPTHFUNCPROC glDepthFunc;
 
 /* Opengl 1.1+ until current */
 typedef u32 (*PFNGLCREATESHADERPROC)(u32 shaderType);
@@ -199,6 +206,9 @@ static PFNGLUNIFORM4FPROC glUniform4f;
 
 typedef void (*PFNGLUNIFORM4FVPROC)(i32 location, i32 count, f32 *value);
 static PFNGLUNIFORM4FVPROC glUniform4fv;
+
+typedef void (*PFNGLUNIFORMMATRIX3FVPROC)(i32 location, i32 count, u8 transpose, f32 *value);
+static PFNGLUNIFORMMATRIX3FVPROC glUniformMatrix3fv;
 
 typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(i32 location, i32 count, u8 transpose, f32 *value);
 static PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
@@ -279,6 +289,8 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glGetIntegerv = (PFNGLGETINTEGERVPROC)load("glGetIntegerv");
     glCullFace = (PFNGLCULLFACEPROC)load("glCullFace");
     glDrawElements = (PFNGLDRAWELEMENTSPROC)load("glDrawElements");
+    glDepthMask = (PFNGLDEPTHMASKPROC)load("glDepthMask");
+    glDepthFunc = (PFNGLDEPTHFUNCPROC)load("glDepthFunc");
 
     /* Opengl 1.1+ until current */
     glCreateShader = (PFNGLCREATESHADERPROC)load("glCreateShader");
@@ -305,6 +317,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glUniform3i = (PFNGLUNIFORM3IPROC)load("glUniform3i");
     glUniform4f = (PFNGLUNIFORM4FPROC)load("glUniform4f");
     glUniform4fv = (PFNGLUNIFORM4FVPROC)load("glUniform4fv");
+    glUniformMatrix3fv = (PFNGLUNIFORMMATRIX3FVPROC)load("glUniformMatrix3fv");
     glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)load("glUniformMatrix4fv");
     glActiveTexture = (PFNGLACTIVETEXTUREPROC)load("glActiveTexture");
     glGenerateMipmap = (PFNGLGENERATEMIPMAPPROC)load("glGenerateMipmap");

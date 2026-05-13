@@ -230,7 +230,6 @@ typedef struct zai_platform_memory
 {
     u8 *data;
     u32 size;
-    u32 length;
 
 } zai_platform_memory;
 
