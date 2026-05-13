@@ -67,6 +67,10 @@ vec3 getSky(vec3 rd)
 
     sky += moonColor * moonGlow * 0.08 * nightAmount;
     sky += moonColor * moonDisk * 2.5 * nightAmount;
+
+    /* Athmospheric Scattering */
+    float mie = pow(sunAmount, 8.0);
+    sky += sunColor * mie * 0.25;
     
     return sky;
 }
