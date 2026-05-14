@@ -5,6 +5,7 @@ in vec2 vUV;
 out vec4 FragColor;
 
 uniform vec3 iResolution;
+uniform float iTime;
 uniform vec3 cameraPos;
 uniform mat3 cameraBasis; /* right, up, forward */
 uniform vec3 sunDir;
@@ -18,6 +19,7 @@ vec3 getSky(vec3 rd)
     float h = max(rd.y, 0.0);
 
     float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
+    float nightAmount = 1.0 - dayAmount;
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
 
     /* Colors */
@@ -35,11 +37,7 @@ vec3 getSky(vec3 rd)
     horizon = mix(horizon, sunsetHorizon, sunsetAmount);
 
     vec3 sky = mix(horizon, zenith, pow(h, 0.35));
-
-    float horizonGlow = pow(1.0 - h, 5.0);
-
-    sky += sunsetHorizon * horizonGlow * sunsetAmount * 0.5;
-
+    
     float sunAmount = max(dot(rd, sunDir), 0.0);
     float sunGlow   = pow(sunAmount, 32.0);
     float sunDisk   = pow(sunAmount, 2000.0);
@@ -55,14 +53,12 @@ vec3 getSky(vec3 rd)
     sky += sunColor * sunDisk * 8.0;
     
     /* Moon */
-    float nightAmount = 1.0 - dayAmount;
     vec3 moonDir = -sunDir;
 
     float moonAmount = max(dot(rd, moonDir), 0.0);
 
     float moonDisk = pow(moonAmount, 1500.0);
     float moonGlow = pow(moonAmount, 20.0);
-
     vec3 moonColor = vec3(0.8, 0.85, 1.0);
 
     sky += moonColor * moonGlow * 0.08 * nightAmount;
@@ -71,6 +67,10 @@ vec3 getSky(vec3 rd)
     /* Athmospheric Scattering */
     float mie = pow(sunAmount, 8.0);
     sky += sunColor * mie * 0.25;
+
+    /* Horizon glow */
+    float horizonGlow = pow(1.0 - h, 8.0);
+    sky += sunsetHorizon * horizonGlow * sunsetAmount * 0.5;
     
     return sky;
 }

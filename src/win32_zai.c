@@ -879,6 +879,7 @@ typedef struct shader_sky
   shader_header header;
 
   i32 loc_iResolution;
+  i32 loc_iTime;
   i32 loc_camera;
   i32 loc_camera_basis;
   i32 loc_sun_dir;
@@ -1330,6 +1331,7 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
     if (opengl_shader_load(&sky_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
     {
       sky_shader.loc_iResolution = glGetUniformLocation(sky_shader.header.program, "iResolution");
+      sky_shader.loc_iTime = glGetUniformLocation(sky_shader.header.program, "iTime");
       sky_shader.loc_camera = glGetUniformLocation(sky_shader.header.program, "cameraPos");
       sky_shader.loc_camera_basis = glGetUniformLocation(sky_shader.header.program, "cameraBasis");
       sky_shader.loc_sun_dir = glGetUniformLocation(sky_shader.header.program, "sunDir");
@@ -1355,6 +1357,7 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
   glBindVertexArray(sky_vao);
 
   glUniform3f(sky_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+  glUniform1f(sky_shader.loc_iTime, (f32)state->platform_state.timing.time_elapsed);
   glUniform3f(sky_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
   glUniform3f(sky_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
   glUniformMatrix3fv(sky_shader.loc_camera_basis, 1, GL_FALSE, camera_basis);
