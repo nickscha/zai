@@ -95,16 +95,22 @@ void main() {
     terrainBase *= 0.97 + detail * 0.06;
 
     /* Ligthning */
-    float NdotL = max(dot(normal, sunDir), 0.0);
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
+    vec3 sunlightColor = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.45, 0.20), sunsetAmount);
 
-    vec3 sunlightColor = mix(
-        vec3(1.0, 0.95, 0.85),
-        vec3(1.0, 0.45, 0.20),
-        sunsetAmount
-    );
+    float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 skyColor = mix(vec3(0.02, 0.03, 0.05), vec3(0.4, 0.6, 1.0), dayAmount);
 
-    vec3 finalColor = terrainBase * sunlightColor * (NdotL * 0.9 + 0.1);
+    float slope = 1.0 - normal.y;
+
+    float NdotL = max(dot(normal, sunDir), 0.0);
+
+    float fakeShadow = pow(NdotL, mix(0.5, 2.0, slope));
+
+    float hemi = normal.y * 0.5 + 0.5;
+    vec3 ambient = skyColor * hemi * 0.2;
+
+    vec3 finalColor = terrainBase * (sunlightColor * fakeShadow + ambient);
 
     vec3 viewVec = vWorldPos - iCamera;
     vec3 viewDir = normalize(viewVec);

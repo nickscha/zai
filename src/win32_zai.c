@@ -1652,6 +1652,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
   {
     static u8 move_sun = 0;
+    static u8 move_sun_loop = 0;
     static f32 move_val = 0.0f;
 
     if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_M] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_M])
@@ -1661,6 +1662,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       if (move_sun)
       {
         move_val = 0.0f;
+        move_sun_loop = 0;
       }
     }
 
@@ -1675,6 +1677,11 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       f32 len;
 
       (void)t;
+
+      if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_L] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_L])
+      {
+        move_sun_loop = !move_sun_loop;
+      }
 
       if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_UP])
       {
@@ -1695,11 +1702,12 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       sun_dir_y = zai_sinf(move_val);
       sun_dir_z = -zai_cosf(move_val);
 
-      /*
-      sun_dir_x = 0.0f;
-      sun_dir_y = zai_sinf(t);
-      sun_dir_z = -zai_cosf(t);
-      */
+      if (move_sun_loop)
+      {
+        sun_dir_x = 0.0f;
+        sun_dir_y = zai_sinf(t * 0.025f);
+        sun_dir_z = -zai_cosf(t * 0.025f);
+      }
 
       len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
 
