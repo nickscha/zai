@@ -17,6 +17,7 @@ float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+/* Matches the Skybox shader */
 vec3 getFogColor(vec3 rd)
 {
     float h = max(rd.y, 0.0);
