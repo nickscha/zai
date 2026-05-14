@@ -1371,7 +1371,6 @@ ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3
 
 /* 65 */
 #define GRID_RES 129
-#define MAX_VERTS (GRID_RES * GRID_RES)
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
 ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir, f32 camera_basis[9])
@@ -1379,12 +1378,10 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   static u8 terrain_initialized = 0;
   static shader_terrain terrain_shader = {0};
 
-  static zai_vec2 gridVerts[MAX_VERTS];
-  static u32 gridIndices[MAX_INDICES];
+  static u16 gridIndices[MAX_INDICES];
   static i32 gridIndexCount = 0;
 
   static u32 terrain_vao;
-  static u32 terrain_vbo;
   static u32 terrain_ibo;
 
   static u32 tex_diffuse;
@@ -1433,30 +1430,17 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
     {
       i32 x;
       i32 z;
-      i32 i;
-
-      /* UV grid */
-      for (z = 0; z < GRID_RES; ++z)
-      {
-        for (x = 0; x < GRID_RES; ++x)
-        {
-          i = z * GRID_RES + x;
-          gridVerts[i].x = (f32)x / (f32)(GRID_RES - 1);
-          gridVerts[i].y = (f32)z / (f32)(GRID_RES - 1);
-        }
-      }
+      i32 i = 0;
 
       /* indices */
-      i = 0;
-
       for (z = 0; z < GRID_RES - 1; ++z)
       {
         for (x = 0; x < GRID_RES - 1; ++x)
         {
-          u32 i0 = (u32)(z * GRID_RES + x);
-          u32 i1 = i0 + 1;
-          u32 i2 = i0 + GRID_RES;
-          u32 i3 = i2 + 1;
+          u16 i0 = (u16)(z * GRID_RES + x);
+          u16 i1 = i0 + 1;
+          u16 i2 = i0 + GRID_RES;
+          u16 i3 = i2 + 1;
 
           gridIndices[i++] = i0;
           gridIndices[i++] = i2;
@@ -1473,13 +1457,6 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 
     glGenVertexArrays(1, &terrain_vao);
     glBindVertexArray(terrain_vao);
-
-    glGenBuffers(1, &terrain_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, terrain_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(gridVerts), gridVerts, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(zai_vec2), (void *)0);
-    glEnableVertexAttribArray(0);
 
     glGenBuffers(1, &terrain_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrain_ibo);
@@ -1613,7 +1590,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
       glBindTexture(GL_TEXTURE_2D, tex_displacement);
       glUniform1i(terrain_shader.loc_texture_displacement, 2);
 
-      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_INT, 0, terrain_lod_count);
+      glDrawElementsInstanced(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, 0, terrain_lod_count);
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
       glDisable(GL_DEPTH_TEST);
       glDisable(GL_CULL_FACE);

@@ -1,5 +1,4 @@
 #version 330 core
-layout(location=0) in vec2 uv;
 
 uniform vec3  iResolution;
 uniform vec3  iCamera;
@@ -72,7 +71,14 @@ vec3 terrainMap( vec2 p ) {
     return vec3(finalH, finalDH);
 }
 
+const uint GRID_RES = 129u;
+
 void main() {
+    uint vid = uint(gl_VertexID);
+    uint x = vid % GRID_RES;
+    uint z = vid / GRID_RES;
+    vec2 uv = vec2(x, z) / float(GRID_RES - 1u);
+
     int lod = gl_InstanceID;
     
     float scale = iBaseScale * exp2(float(lod));
