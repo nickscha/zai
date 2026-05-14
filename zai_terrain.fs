@@ -79,6 +79,17 @@ void main() {
     float heightBlend = smoothstep(400.0, 800.0, height);
     vec3 terrainBase = mix(lowColor, highColor, heightBlend);
 
+    /* Triplanar mapping 
+    float texScale = 0.05; 
+    vec3 blendWeights = abs(normal);
+    blendWeights = blendWeights / (blendWeights.x + blendWeights.y + blendWeights.z);
+    vec4 texX = texture(tex_diffuse, vWorldPos.zy * texScale);
+    vec4 texY = texture(tex_diffuse, vWorldPos.xz * texScale);
+    vec4 texZ = texture(tex_diffuse, vWorldPos.xy * texScale);
+    vec4 albedo = texX * blendWeights.x + texY * blendWeights.y + texZ * blendWeights.z;
+    vec3 terrainBase = albedo.rgb;
+    */
+
     /* Terrain noise */
     float detail = hash(floor(vWorldPos.xz * 2.0));
     terrainBase *= 0.97 + detail * 0.06;
