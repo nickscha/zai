@@ -74,6 +74,7 @@ vec3 terrainMap( vec2 p ) {
 const uint GRID_RES = 129u;
 
 void main() {
+    /* UV coordinate calculation */
     uint vid = uint(gl_VertexID);
     uint x = vid % GRID_RES;
     uint z = vid / GRID_RES;
@@ -97,6 +98,7 @@ void main() {
     vec2 localPos = (uv - 0.5) * scale;
     vec2 worldXZ = snappedCam + localPos;
 
+    /* Lod inner ring discard */
     if (lod > 0) {
         float prevScale = iBaseScale * exp2(float(lod - 1));
         
@@ -123,6 +125,7 @@ void main() {
         worldXZ = mix(worldXZ, gridSnappedXZ, transition);
     }
 
+    /* Height function with derivatives */
     vec3 terrain = terrainMap(worldXZ);
 
     vWorldPos = vec3(worldXZ.x, terrain.x, worldXZ.y);
