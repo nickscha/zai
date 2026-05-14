@@ -72,8 +72,18 @@ vec3 getFogColor(vec3 rd)
 void main() {
     vec3 normal = normalize(vNormal);
     
+    float height = vWorldPos.y;
+
+    vec3 lowColor  = vec3(0.18, 0.16, 0.12);
+    vec3 highColor = vec3(0.62, 0.30, 0.26);
+    float heightBlend = smoothstep(400.0, 800.0, height);
+    vec3 terrainBase = mix(lowColor, highColor, heightBlend);
+
+    /* Terrain noise */
+    float detail = hash(floor(vWorldPos.xz * 2.0));
+    terrainBase *= 0.97 + detail * 0.06;
+
     // Basic lighting setup
-    vec3 terrainBase = vec3(0.18, 0.16, 0.12);
     float NdotL = max(dot(normal, sunDir), 0.0);
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
 
@@ -102,6 +112,9 @@ void main() {
 
     float noise = hash(gl_FragCoord.xy);
     finalColor += (noise - 0.5) / 255.0;
-    
+
+    float fakeAO = pow(normal.y, 1.5);
+    finalColor *= mix(0.65, 1.0, fakeAO);
+
     FragColor = vec4(finalColor, 1.0);
 }
