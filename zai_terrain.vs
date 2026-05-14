@@ -81,38 +81,31 @@ void main() {
     vec2 uv = vec2(x, z) / float(GRID_RES - 1u);
 
     int lod = gl_InstanceID;
+
+    /* Lod inner ring discard */
+    if (lod > 0)
+    {   
+        /* 128x128 quad grid */
+        const float inner = 0.265625; /* 34 / 128 */
+        const float outer = 0.734375; /* 94 / 128 */
+
+        if (uv.x > inner && uv.x < outer && uv.y > inner && uv.y < outer) 
+        {
+            gl_Position = vec4(0.0, 0.0, 2.0, 0.0); 
+            return;
+        }
+    }
     
     float scale = iBaseScale * exp2(float(lod));
     float spacing = scale / iBaseScale;
 
-    vec3 camTerrain = terrainMap(iCamera.xz);
-    float heightAboveGround = max(0.0, iCamera.y - camTerrain.x);
-
-    float biasFactor = 0.95; 
-    float biasWeight = clamp(1.0 - (heightAboveGround / 600.0), 0.0, 1.0);   
-    vec2 forwardBias = iViewDir.xz * (scale * biasFactor) * biasWeight;
-
-    vec2 posToSnap = iCamera.xz + forwardBias;
+    vec2 posToSnap = iCamera.xz;
     vec2 snappedCam = floor(posToSnap / (spacing * 2.0)) * (spacing * 2.0);
 
     vec2 localPos = (uv - 0.5) * scale;
     vec2 worldXZ = snappedCam + localPos;
 
-    /* Lod inner ring discard */
-    if (lod > 0) {
-        float prevScale = iBaseScale * exp2(float(lod - 1));
-        
-        vec2 prevForwardBias = iViewDir.xz * (prevScale * biasFactor) * biasWeight;
-        vec2 prevSnappedCam = floor((iCamera.xz + prevForwardBias) / (spacing)) * (spacing);
-        
-        vec2 diff = abs(worldXZ - prevSnappedCam);
-        float innerHalfSize = prevScale * 0.5;
 
-        if (diff.x < innerHalfSize - spacing && diff.y < innerHalfSize - spacing) {
-            gl_Position = vec4(0.0, 0.0, 2.0, 0.0);
-            return;
-        }
-    }
 
     /* Morphing */
     vec2 alpha = abs(uv - 0.5) * 2.0; 
