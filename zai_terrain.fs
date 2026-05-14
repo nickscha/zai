@@ -55,10 +55,10 @@ vec3 getFogColor(vec3 rd)
 
     /* Moon */
     float nightAmount = 1.0 - dayAmount;
-    vec3 moonDir = -sunDir;
-    float moonAmount = max(dot(rd, moonDir), 0.0);
-    float moonGlow = pow(moonAmount, 20.0);
-    vec3 moonColor = vec3(0.8, 0.85, 1.0);
+    vec3 moonDir      = -sunDir;
+    float moonAmount  = max(dot(rd, moonDir), 0.0);
+    float moonGlow    = pow(moonAmount, 20.0);
+    vec3 moonColor    = vec3(0.8, 0.85, 1.0);
 
     sky += moonColor * moonGlow * 0.08 * nightAmount;
 
@@ -83,7 +83,7 @@ void main() {
     float detail = hash(floor(vWorldPos.xz * 2.0));
     terrainBase *= 0.97 + detail * 0.06;
 
-    // Basic lighting setup
+    /* Ligthning */
     float NdotL = max(dot(normal, sunDir), 0.0);
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
 
@@ -99,6 +99,7 @@ void main() {
     vec3 viewDir = normalize(viewVec);
     float dist = length(viewVec);
 
+    /* Fog */
     float fogFactor = 1.0 - exp(-dist * 0.00003);
     float horizonScale = pow(1.0 - abs(viewDir.y), 4.0);
     
@@ -106,15 +107,18 @@ void main() {
     fogFactor = clamp(fogFactor, 0.0, 1.0);
     
     vec3 fogColor = getFogColor(viewDir);
-    
     finalColor = mix(finalColor, fogColor, fogFactor);
-    finalColor = pow(finalColor, vec3(1.0 / 2.2));
 
-    float noise = hash(gl_FragCoord.xy);
-    finalColor += (noise - 0.5) / 255.0;
-
+    /* Ambient Occlusion */
     float fakeAO = pow(normal.y, 1.5);
     finalColor *= mix(0.65, 1.0, fakeAO);
+
+    /* Gamma */
+    finalColor = pow(finalColor, vec3(1.0 / 2.2));
+
+    /* Dithering */
+    float noise = hash(gl_FragCoord.xy);
+    finalColor += (noise - 0.5) / 255.0;
 
     FragColor = vec4(finalColor, 1.0);
 }
