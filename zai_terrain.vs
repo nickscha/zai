@@ -105,8 +105,6 @@ void main() {
     vec2 localPos = (uv - 0.5) * scale;
     vec2 worldXZ = snappedCam + localPos;
 
-
-
     /* Morphing */
     vec2 alpha = abs(uv - 0.5) * 2.0; 
     float maxAlpha = max(alpha.x, alpha.y);
