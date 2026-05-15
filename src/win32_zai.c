@@ -1468,7 +1468,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
       u32 h = 1024;
 
       u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_diff_1k.raw", &file_size);
+      u8 *file_contents = win32_file_read("assets/sandstone/sandstone_cracks_diff_1k.raw", &file_size);
 
       if (!file_contents || file_size < 1)
       {
@@ -1493,7 +1493,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
       u32 h = 1024;
 
       u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_nor_dx_1k.raw", &file_size);
+      u8 *file_contents = win32_file_read("assets/sandstone/sandstone_cracks_nor_gl_1k.raw", &file_size);
 
       if (!file_contents || file_size < 1)
       {
@@ -1518,7 +1518,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
       u32 h = 1024;
 
       u32 file_size = 0;
-      u8 *file_contents = win32_file_read("assets/rock/rocky_trail_disp_1k.raw", &file_size);
+      u8 *file_contents = win32_file_read("assets/sandstone/sandstone_cracks_disp_1k.raw", &file_size);
 
       if (!file_contents || file_size < 1)
       {
