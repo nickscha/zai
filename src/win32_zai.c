@@ -1552,6 +1552,32 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   ZAI_PROFILER_BEGIN(render_terrain);
   {
     static u8 wireframe_enabled = 0;
+    static f32 fov = 90.0f;
+
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F])
+    {
+      fov = 90.0f;
+    }
+
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_PLUS])
+    {
+      fov -= 1.0f;
+
+      if (fov <= 0.0f)
+      {
+        fov = 1.0f;
+      }
+    }
+
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_MINUS])
+    {
+      fov += 1.0f;
+
+      if (fov >= 180.0f)
+      {
+        fov = 179.0f;
+      }
+    }
 
     if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_TAB] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_TAB])
     {
@@ -1561,7 +1587,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
     (void)camera_basis;
 
     {
-      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 10000.0f);
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 10000.0f);
       zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->front), camera->up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
