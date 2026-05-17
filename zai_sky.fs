@@ -14,6 +14,14 @@ float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+float pseudoNoise(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+float hash3D(vec3 p) {
+    return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+}
+
 vec3 getSky(vec3 rd)
 {
     float h = max(rd.y, 0.0);
@@ -71,7 +79,45 @@ vec3 getSky(vec3 rd)
     /* Horizon glow */
     float horizonGlow = pow(1.0 - h, 8.0);
     sky += sunsetHorizon * horizonGlow * sunsetAmount * 0.5;
-    
+
+    /* Stars */
+    float trueNightAmount = smoothstep(0.0, -0.2, sunDir.y);
+
+    if (trueNightAmount > 0.001) {
+        vec3 starZ = normalize(-sunDir); 
+        vec3 starX = normalize(cross(vec3(0.0, 1.0, 0.0), starZ));
+        vec3 starY = cross(starZ, starX);
+        mat3 celestialRotation = mat3(starX, starY, starZ);
+        
+        vec3 rotatedRd = rd * celestialRotation;
+
+        float gridScale = 500.0; 
+        vec3 starGrid = floor(rotatedRd * gridScale); 
+        
+        float starHash = hash3D(starGrid);
+        float starIntensity = 0.0;
+
+        if (starHash > 0.998) {
+            float normalizedHash = (starHash - 0.992) / (1.0 - 0.992);
+            starIntensity = pow(normalizedHash, 2.0) * trueNightAmount;
+        }
+
+        if (starIntensity > 0.0) {
+
+            vec3 cellCenter = normalize((starGrid + 0.5) / gridScale);
+            float angleDist = 1.0 - dot(rotatedRd, cellCenter);
+
+            float starSize = 0.000002; 
+            starIntensity *= smoothstep(starSize, 0.0, angleDist);
+            starIntensity *= smoothstep(0.0, 0.1, rd.y); 
+
+            float skyLuminance = dot(sky, vec3(0.2126, 0.7152, 0.0722));
+            starIntensity *= max(1.0 - skyLuminance * 4.0, 0.0); 
+
+            sky += vec3(starIntensity * 0.9, starIntensity * 0.95, starIntensity * 1.0);
+        }
+    }
+        
     return sky;
 }
 
