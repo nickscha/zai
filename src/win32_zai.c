@@ -1289,15 +1289,27 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
     camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
   }
 
-  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_CONTROL]) /* control */
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_CONTROL])
   {
     camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->worldUp, cam_speed));
+  }
+
+  /* Roll handling */
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_Q])
+  {
+    camera->roll -= 1.0f;
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_E])
+  {
+    camera->roll += 1.0f;
   }
 
   /* FOV handling */
   if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_F] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_F])
   {
     camera->fov = 90.0f;
+    camera->roll = 0.0f;
   }
 
   if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_PLUS])
