@@ -11,7 +11,7 @@
 typedef struct zai_camera
 {
   zai_vec3 position;
-  zai_vec3 front;
+  zai_vec3 forward;
   zai_vec3 up;
   zai_vec3 right;
   zai_vec3 worldUp;
@@ -41,9 +41,9 @@ ZAI_API void zai_camera_update(zai_camera *cam)
   zai_vec3 right;
   zai_vec3 up;
 
-  cam->front.x = cy * cp;
-  cam->front.y = sp;
-  cam->front.z = sy * cp;
+  cam->forward.x = cy * cp;
+  cam->forward.y = sp;
+  cam->forward.z = sy * cp;
 
   right.x = -sy;
   right.y = 0.0f;
@@ -68,7 +68,7 @@ ZAI_API ZAI_INLINE zai_camera zai_camera_init(void)
   zai_camera cam = {0};
 
   cam.position = zai_vec3_zero;
-  cam.front = zai_vec3_init(0.0f, 0.0f, -1.0f);
+  cam.forward = zai_vec3_init(0.0f, 0.0f, -1.0f);
   cam.up = zai_vec3_init(0.0f, 1.0f, 0.0f);
   cam.worldUp = cam.up;
   cam.fov = 90.0f;

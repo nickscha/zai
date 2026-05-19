@@ -1749,12 +1749,12 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
 
   if (state->keys_is_down[0x57]) /* W */
   {
-    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->forward, cam_speed));
   }
 
   if (state->keys_is_down[0x53]) /* S */
   {
-    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->forward, cam_speed));
   }
 
   if (state->keys_is_down[0x41]) /* A */
@@ -2027,7 +2027,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 10000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.forward), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glEnable(GL_CULL_FACE);
@@ -2036,7 +2036,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state)
       glUseProgram(terrain_shader.header.program);
       glUniform3f(terrain_shader.loc_iResolution, (f32)state->window_width, (f32)state->window_height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera.position.x, camera.position.y, camera.position.z);
-      glUniform3f(terrain_shader.loc_camera_view_dir, camera.front.x, camera.front.y, camera.front.z);
+      glUniform3f(terrain_shader.loc_camera_view_dir, camera.forward.x, camera.forward.y, camera.forward.z);
 
       glUniform1f(terrain_shader.loc_base_scale, (f32)state->terrain_base_scale);
       glUniformMatrix4fv(terrain_shader.loc_mvp, 1, GL_FALSE, mvp.e);
@@ -2274,7 +2274,7 @@ ZAI_API void zai_render_marching_cubes(win32_zai_state *state)
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.forward), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glEnable(GL_DEPTH_TEST);
@@ -2487,7 +2487,7 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state)
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(90.0f), (f32)state->window_width / (f32)state->window_height, 0.1f, 20000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.front), camera.up);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera.position, zai_vec3_add(camera.position, camera.forward), camera.up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glEnable(GL_DEPTH_TEST);

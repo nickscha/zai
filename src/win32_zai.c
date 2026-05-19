@@ -1266,12 +1266,12 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
 
   if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_W])
   {
-    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+    camera->position = zai_vec3_add(camera->position, zai_vec3_mulf(camera->forward, cam_speed));
   }
 
   if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_S])
   {
-    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->front, cam_speed));
+    camera->position = zai_vec3_sub(camera->position, zai_vec3_mulf(camera->forward, cam_speed));
   }
 
   if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_A])
@@ -1601,7 +1601,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 
     {
       zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(camera->fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 10000.0f);
-      zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->front), camera->up);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->forward), camera->up);
       zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
       glEnable(GL_DEPTH_TEST);
@@ -1614,7 +1614,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
       glUseProgram(terrain_shader.header.program);
       glUniform3f(terrain_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
       glUniform3f(terrain_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
-      glUniform3f(terrain_shader.loc_camera_view_dir, camera->front.x, camera->front.y, camera->front.z);
+      glUniform3f(terrain_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
       glUniform3f(terrain_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
 
       glUniform1f(terrain_shader.loc_base_scale, (f32)terrain_base_scale);
@@ -1671,9 +1671,9 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   camera_basis[3] = camera.up.x;
   camera_basis[4] = camera.up.y;
   camera_basis[5] = camera.up.z;
-  camera_basis[6] = camera.front.x;
-  camera_basis[7] = camera.front.y;
-  camera_basis[8] = camera.front.z;
+  camera_basis[6] = camera.forward.x;
+  camera_basis[7] = camera.forward.y;
+  camera_basis[8] = camera.forward.z;
 
   {
     static u8 move_sun = 0;
