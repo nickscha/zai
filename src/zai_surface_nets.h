@@ -8,6 +8,13 @@
  * # [SECTION] Surface Nets
  * #############################################################################
  */
+#define ZAI_DIR_NEG_X (1 << 0)
+#define ZAI_DIR_POS_X (1 << 1)
+#define ZAI_DIR_NEG_Y (1 << 2)
+#define ZAI_DIR_POS_Y (1 << 3)
+#define ZAI_DIR_NEG_Z (1 << 4)
+#define ZAI_DIR_POS_Z (1 << 5)
+
 typedef struct zai_surface_nets_vertex
 {
     zai_vec3 position;
@@ -22,6 +29,9 @@ typedef struct zai_surface_nets_context
     i32 grid_dimensions;  /* Grid dimensions per axis */
     f32 grid_total_size;  /* Grid total size spanning */
     zai_vec3 grid_center; /* Grid center position */
+
+    u8 lod;             /* 0 = max detail, 1 = half detail, etc. */
+    u8 transition_mask; /* Bitmask of faces bordering an LOD + 1 neighbor */
 
 } zai_surface_nets_context;
 
