@@ -1432,12 +1432,8 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
   static f32 amplitude = 15.0f;
   static f32 lacunarity = 2.0f;
   static f32 gain = 0.5f;
-  static i32 seed = (i32)0xDEADBEEF;
   static f32 zai_noise_rotation[3][3] = {{0.00f, 0.80f, 0.60f}, {-0.80f, 0.36f, -0.48f}, {-0.60f, -0.48f, 0.64f}};
   static i32 octaves = 6;
-
-  (void)seed;
-  (void)zai_noise_rotation;
 
   for (z = 0; z < grid_dimensions; ++z)
   {
