@@ -116,10 +116,10 @@ typedef enum zai_platform_input_keyboard_keys
     /* others */
     ZAI_KEYBOARD_KEY_PLUS,
     ZAI_KEYBOARD_KEY_MINUS,
+    ZAI_KEYBOARD_KEY_POINT,
+    ZAI_KEYBOARD_KEY_COMMA,
 
     /* padding */
-    ZAI_KEYBOARD_KEY_UNUSED1,
-    ZAI_KEYBOARD_KEY_UNUSED2,
     ZAI_KEYBOARD_KEY_UNUSED3,
 
     ZAI_KEYBORD_KEYS_COUNT

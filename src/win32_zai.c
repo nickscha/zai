@@ -443,6 +443,12 @@ ZAI_API ZAI_INLINE i32 win32_vk_to_zai_key(i32 vk)
 
   case 0xBD:
     return ZAI_KEYBOARD_KEY_MINUS;
+
+  case 0xBC:
+    return ZAI_KEYBOARD_KEY_COMMA;
+
+  case 0xBE:
+    return ZAI_KEYBOARD_KEY_POINT;
   }
 
   return -1;
