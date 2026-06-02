@@ -1488,8 +1488,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state, zai_camera *camera)
   static u32 vbo_1;
   static u32 ebo_1;
 
-  (void)state;
-
   if (!surface_nets_initialized)
   {
     f32 *density_grid;
