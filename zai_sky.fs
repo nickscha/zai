@@ -80,9 +80,15 @@ vec3 getSky(vec3 rd)
     float trueNightAmount = smoothstep(0.0, -0.2, sunDir.y);
 
     if (trueNightAmount > 0.001) {
-        vec3 starZ = normalize(-sunDir); 
-        vec3 starX = normalize(cross(vec3(0.0, 1.0, 0.0), starZ));
+        vec3 starZ = normalize(-sunDir);
+
+        vec3 refUp = abs(starZ.y) > 0.99
+            ? vec3(1.0, 0.0, 0.0)
+            : vec3(0.0, 1.0, 0.0);
+
+        vec3 starX = normalize(cross(refUp, starZ));
         vec3 starY = cross(starZ, starX);
+
         mat3 celestialRotation = mat3(starX, starY, starZ);
         
         vec3 rotatedRd = rd * celestialRotation;
