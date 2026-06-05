@@ -2933,7 +2933,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
         /* Show profiler entries */
         {
           u16 offset_memory_x = 300;
-          u16 offset_memory_y = 150;
+          u16 offset_memory_y = 10;
           u32 i;
 
           for (i = 0; i < zai_profiler_entries_count; ++i)
