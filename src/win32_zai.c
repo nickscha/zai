@@ -15,6 +15,7 @@ LICENSE
 #include "zai_camera.h"
 #include "zai_noise.h"
 #include "zai_surface_nets.h"
+#include "zai_marching_cubes.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
@@ -1468,6 +1469,171 @@ ZAI_API ZAI_INLINE void initialize_density_grid(f32 *grid, i32 grid_dimensions, 
 }
 
 #define DIM 129
+#define MAX_TRIANGLES (DIM * DIM * DIM * 5)
+ZAI_API void zai_render_marching_cubes(win32_zai_state *state, zai_camera *camera)
+{
+  static u8 marching_cubes_initialized = 0;
+
+  static f32 density_grid[DIM * DIM * DIM];
+  static zai_marching_cubes_triangle *triangle_buffer;
+  static zai_marching_cubes_triangle *triangle_buffer_1;
+  static zai_marching_cubes_context ctx = {0};
+  static zai_marching_cubes_context ctx_1 = {0};
+  static i32 triangle_count = 0;
+  static i32 triangle_count_1 = 0;
+  static u32 vao;
+  static u32 vao_1;
+  static u32 vbo;
+  static u32 vbo_1;
+  static shader_marching_cubes marching_cubes_shader;
+
+  if (!marching_cubes_initialized)
+  {
+    ZAI_PROFILER_BEGIN(setup_marching_cubes);
+
+    zai_noise_seed(0xDEADBEEF); /* 1234 */
+
+    /* Shader Setup */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_marching_cubes.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_marching_cubes.fs", &size_code_fragment);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load marching cubes shader files!\n");
+        return;
+      }
+
+      if (opengl_shader_load(&marching_cubes_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        marching_cubes_shader.loc_iResolution = glGetUniformLocation(marching_cubes_shader.header.program, "iResolution");
+        marching_cubes_shader.loc_mvp = glGetUniformLocation(marching_cubes_shader.header.program, "MVP");
+
+        if (marching_cubes_shader.loc_mvp < 0)
+        {
+          win32_print("Cannot find uniforms!\n");
+        }
+      }
+      else
+      {
+        win32_print("Cannot compile shaders!\n");
+      }
+    }
+
+    triangle_buffer = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    triangle_buffer_1 = VirtualAlloc(0, sizeof(zai_marching_cubes_triangle) * MAX_TRIANGLES, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+    /* LOD 0 */
+    ctx.dim_size = DIM;
+    ctx.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx.chunk_coord.x = 0.0f;
+    ctx.chunk_coord.y = 0.0f;
+    ctx.chunk_coord.z = 0.0f;
+    ctx.density_grid = density_grid;
+    ctx.transition_mask = 0;
+    ctx.lod_level = 0;
+
+    ZAI_PROFILER_BEGIN(setup_density_grid);
+    initialize_density_grid(density_grid, DIM, ctx.grid_size, ctx.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid);
+
+    ZAI_PROFILER_BEGIN(setup_triangles);
+    zai_marching_cubes_generate(&ctx, triangle_buffer, &triangle_count);
+    ZAI_PROFILER_END(setup_triangles);
+
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, triangle_count * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
+
+    /* LOD 1 */
+    ctx_1.dim_size = DIM;
+    ctx_1.grid_size = 100.0f; /* Total world-space size of the chunk */
+    ctx_1.iso_level = 0.0f;   /* The "surface" is where density is 0 */
+    ctx_1.chunk_coord.x = 0.0f;
+    ctx_1.chunk_coord.y = 0.0f;
+    ctx_1.chunk_coord.z = -100.0f;
+    ctx_1.density_grid = density_grid;
+    ctx_1.transition_mask = 0;
+    ctx_1.lod_level = 0;
+
+    ZAI_PROFILER_BEGIN(setup_density_grid_1);
+    initialize_density_grid(density_grid, DIM, ctx_1.grid_size, ctx_1.chunk_coord);
+    ZAI_PROFILER_END(setup_density_grid_1);
+
+    ZAI_PROFILER_BEGIN(setup_triangles_1);
+    zai_marching_cubes_generate(&ctx_1, triangle_buffer_1, &triangle_count_1);
+    ZAI_PROFILER_END(setup_triangles_1);
+
+    glGenVertexArrays(1, &vao_1);
+    glBindVertexArray(vao_1);
+    glGenBuffers(1, &vbo_1);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_1);
+    glBufferData(GL_ARRAY_BUFFER, triangle_count_1 * (i32)sizeof(zai_marching_cubes_triangle), triangle_buffer_1, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(zai_marching_cubes_vertex), (void *)(sizeof(f32) * 3));
+
+    ZAI_PROFILER_END(setup_marching_cubes);
+
+    marching_cubes_initialized = 1;
+  }
+
+  /* Render */
+  ZAI_PROFILER_BEGIN(render_marching_cubes);
+  {
+    static u8 wireframe_enabled = 0;
+
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_TAB] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_TAB])
+    {
+      wireframe_enabled = !wireframe_enabled;
+    }
+
+    {
+      zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(camera->fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 20000.0f);
+      zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->forward), camera->up);
+      zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+      glEnable(GL_DEPTH_TEST);
+      /*
+       glEnable(GL_CULL_FACE);
+       glCullFace(GL_BACK);
+       */
+      glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
+      glUseProgram(marching_cubes_shader.header.program);
+      glUniformMatrix4fv(marching_cubes_shader.loc_mvp, 1, GL_FALSE, mvp.e);
+      glUniform3f(marching_cubes_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+
+      glBindVertexArray(vao);
+      glDrawArrays(GL_TRIANGLES, 0, triangle_count * 3);
+
+      glBindVertexArray(vao_1);
+      glDrawArrays(GL_TRIANGLES, 0, triangle_count_1 * 3);
+
+      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+      glDisable(GL_DEPTH_TEST);
+      /*
+      glDisable(GL_CULL_FACE);
+      */
+    }
+  }
+  ZAI_PROFILER_END(render_marching_cubes);
+
+  (void)state;
+  (void)zai_marching_cubes_corner_index_a_from_edge;
+  (void)zai_marching_cubes_corner_index_b_from_edge;
+  (void)zai_marching_cubes_triangulation;
+}
+
 ZAI_API void zai_render_surface_nets(win32_zai_state *state, zai_camera *camera)
 {
   static u8 surface_nets_initialized = 0;
@@ -1923,7 +2089,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   {
     active_scene++;
 
-    if (active_scene > 1)
+    if (active_scene > 2)
     {
       active_scene = 0;
     }
@@ -1936,9 +2102,18 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
       camera_speed = 1000.0f;
     }
-    else
+    else if (active_scene == 1)
     {
       /* Surface nets */
+      camera = zai_camera_init();
+      camera.position.y = 20.0f;
+      camera.position.z = 80.0f;
+
+      camera_speed = 25.0f;
+    }
+    else
+    {
+      /* Marching Cubes */
       camera = zai_camera_init();
       camera.position.y = 20.0f;
       camera.position.z = 80.0f;
@@ -2035,9 +2210,13 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   {
     zai_render_terrain(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
   }
-  else
+  else if (active_scene == 1)
   {
     zai_render_surface_nets(state, &camera);
+  }
+  else
+  {
+    zai_render_marching_cubes(state, &camera);
   }
 }
 
