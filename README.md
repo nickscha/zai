@@ -54,7 +54,7 @@ You can now run the `win32_zai.exe` program.
 ### Running the program
 
 > [!IMPORTANT]
-> If you have donwloaded the release executeable depending on your platform use `win32_zai_x64.exe` or `win32_zai_arm.exe`
+> If you have downloaded the release executeable depending on your platform use `win32_zai_x64.exe` or `win32_zai_arm.exe`
 
 ```bat
 win32_zai_x64.exe
