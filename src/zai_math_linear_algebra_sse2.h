@@ -269,28 +269,14 @@ ZAI_API ZAI_INLINE zai_vec3 zai_vec3_cross(zai_vec3 a, zai_vec3 b)
 
 ZAI_API ZAI_INLINE zai_vec3 zai_vec3_normalize(zai_vec3 a)
 {
-    static f32 f0p5 = 0.5f;
-    static f32 f1p5 = 1.5f;
+    f32 length_squared = a.x * a.x + a.y * a.y + a.z * a.z;
+    f32 scalar = length_squared > 0.0f ? zai_invsqrtf(length_squared) : 0.0f;
 
     zai_vec3 result;
 
-    __m128 va, ssq, tmp, lsq, rsq, mask;
-
-    va = _mm_load_ps((f32 *)&a);
-    ssq = _mm_mul_ps(va, va);
-
-    tmp = _mm_shuffle_ps(ssq, ssq, _MM_SHUFFLE(1, 1, 1, 1));
-    lsq = _mm_add_ss(ssq, tmp);
-    tmp = _mm_shuffle_ps(ssq, ssq, _MM_SHUFFLE(2, 2, 2, 2));
-    lsq = _mm_add_ss(lsq, tmp);
-    lsq = _mm_shuffle_ps(lsq, lsq, _MM_SHUFFLE(0, 0, 0, 0));
-    rsq = _mm_rsqrt_ps(lsq);
-    tmp = _mm_mul_ps(_mm_mul_ps(lsq, rsq), rsq);
-    rsq = _mm_mul_ps(_mm_set1_ps(f0p5), _mm_mul_ps(rsq, _mm_sub_ps(_mm_set1_ps(f1p5), tmp)));
-    mask = _mm_cmpgt_ps(lsq, _mm_setzero_ps());
-    rsq = _mm_and_ps(rsq, mask);
-
-    _mm_store_ps((f32 *)&result, _mm_mul_ps(va, rsq));
+    result.x = a.x * scalar;
+    result.y = a.y * scalar;
+    result.z = a.z * scalar;
 
     return result;
 }
