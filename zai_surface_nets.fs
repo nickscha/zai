@@ -36,8 +36,8 @@ void main() {
     vec3 sceneCol = baseColor * (diff + ao * 0.5 + vec3(1.0, 0.7, 0.5) * spec);
     sceneCol *= atten;
 
-    float c = 0.08; // How fast the fog thins as you go up
-    float b = 0.02; // Overall thickness
+    float c = 0.05; // How fast the fog thins as you go up
+    float b = 0.004; // Overall thickness
     
     float fogAmount = (b/c) * exp(-ro.y*c) * (1.0 - exp(-vDepth*rd.y*c)) / rd.y;
     fogAmount = clamp(fogAmount, 0.0, 1.0);

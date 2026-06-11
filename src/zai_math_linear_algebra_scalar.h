@@ -181,20 +181,6 @@ ZAI_API ZAI_INLINE zai_vec3 zai_vec3_cross(zai_vec3 a, zai_vec3 b)
     return result;
 }
 
-ZAI_API ZAI_INLINE zai_vec3 zai_vec3_normalize(zai_vec3 a)
-{
-    f32 length_squared = a.x * a.x + a.y * a.y + a.z * a.z;
-    f32 scalar = length_squared > 0.0f ? zai_invsqrtf(length_squared) : 0.0f;
-
-    zai_vec3 result;
-
-    result.x = a.x * scalar;
-    result.y = a.y * scalar;
-    result.z = a.z * scalar;
-
-    return result;
-}
-
 #define ZAI_MAT2X2_ELEMENT_COUNT 4
 
 #ifdef ZAI_MAT_ROW_MAJOR_ORDER
@@ -256,12 +242,6 @@ static zai_mat4x4 zai_mat4x4_zero =
       0.0f, 0.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 0.0f, 0.0f}};
-
-static zai_mat4x4 zai_mat4x4_identity =
-    {{1.0f, 0.0f, 0.0f, 0.0f,
-      0.0f, 1.0f, 0.0f, 0.0f,
-      0.0f, 0.0f, 1.0f, 0.0f,
-      0.0f, 0.0f, 0.0f, 1.0f}};
 
 ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_mul(zai_mat4x4 a, zai_mat4x4 b)
 {

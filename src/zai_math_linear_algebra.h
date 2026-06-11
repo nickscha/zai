@@ -60,6 +60,20 @@ ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_perspective(f32 fov, f32 aspectRatio, f
     return (result);
 }
 
+ZAI_API ZAI_INLINE zai_vec3 zai_vec3_normalize(zai_vec3 a)
+{
+    f32 length_squared = a.x * a.x + a.y * a.y + a.z * a.z;
+    f32 scalar = length_squared > 0.0f ? zai_invsqrtf(length_squared) : 0.0f;
+
+    zai_vec3 result;
+
+    result.x = a.x * scalar;
+    result.y = a.y * scalar;
+    result.z = a.z * scalar;
+
+    return result;
+}
+
 ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_look_at(zai_vec3 eye, zai_vec3 target, zai_vec3 up)
 {
     zai_vec3 f = zai_vec3_normalize(zai_vec3_sub(target, eye));
