@@ -2195,6 +2195,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
         sun_dir_z = -zai_cosf(t * 0.025f);
       }
 
+      /* TODO(nickscha): BUG in SSE2 scalar & linear algebra library */
       len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
 
       sun_dir_x /= len;
