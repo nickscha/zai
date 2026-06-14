@@ -2064,6 +2064,19 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   ZAI_PROFILER_END(render_terrain);
 }
 
+ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
+{
+  static u8 font_initialized = 0;
+
+  if (!font_initialized)
+  {
+    font_initialized = 1;
+  }
+
+  (void)state;
+  (void)camera;
+}
+
 ZAI_API void zai_render_scene(win32_zai_state *state)
 {
   static u8 scene_initialized = 0;
@@ -2219,6 +2232,9 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   {
     zai_render_marching_cubes(state, &camera);
   }
+
+  /* Render text */
+  zai_render_font(state, &camera);
 }
 
 /* #############################################################################
