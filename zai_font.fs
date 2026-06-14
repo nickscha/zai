@@ -18,12 +18,12 @@ void mainImage(out vec4 outColor, in vec2 fragCoord)
     outColor = vec4(0.0);
     fragCoord /= iResolution.y;
 
-    vec2 position = vec2(.0);
+    vec2 position = vec2(.0, .01);
     float FontSize = 3.;
     vec2 U = ( fragCoord - position)*64.0/FontSize;
 
-    // "Zai "
-    C(26);C(33);C(41);C(-32);
+    // "Zai Engine"
+    C(26);C(33);C(41);C(-32);C(5);C(46);C(39);C(41);C(46);C(37);
 
     outColor = outColor.xxxx;
 }
