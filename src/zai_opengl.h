@@ -51,7 +51,9 @@
 #define GL_PACK_ALIGNMENT 0x0D05
 #define GL_UNPACK_ALIGNMENT 0x0CF5
 #define GL_RGB 0x1907
+#define GL_RGBA 0x1908
 #define GL_RGB8 0x8051
+#define GL_RGBA8 0x8058
 #define GL_RED 0x1903
 #define GL_RED_INTEGER 0x8D94
 #define GL_R8 0x8229

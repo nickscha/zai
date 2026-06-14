@@ -926,6 +926,15 @@ typedef struct shader_terrain
 
 } shader_terrain;
 
+typedef struct shader_font_new
+{
+  shader_header header;
+
+  i32 loc_iResolution;
+  i32 loc_texture_font;
+
+} shader_font_new;
+
 static u32 opengl_failed_function_load_count = 0;
 
 ZAI_API PROC win32_opengl_load_function(s8 *name)
@@ -2068,13 +2077,95 @@ ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
 {
   static u8 font_initialized = 0;
 
+  static shader_font_new font_shader = {0};
+  static u32 tex_font;
+  static u32 font_vao;
+
   if (!font_initialized)
   {
+    /* Shader */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_font.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_font.fs", &size_code_fragment);
+
+      ZAI_PROFILER_BEGIN(setup_terrain);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load font shader files!\n");
+        return;
+      }
+
+      if (opengl_shader_load(&font_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        font_shader.loc_iResolution = glGetUniformLocation(font_shader.header.program, "iResolution");
+        font_shader.loc_texture_font = glGetUniformLocation(font_shader.header.program, "tex_font");
+      }
+      else
+      {
+        win32_print("Cannot compile shaders!\n");
+      }
+
+      VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+      VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+    }
+
+    /* Font texture */
+    {
+      u32 w = 1024;
+      u32 h = 1024;
+
+      u32 file_size = 0;
+      u8 *file_contents = win32_file_read("assets/font/codepage12.raw", &file_size);
+
+      if (!file_contents || file_size < 1)
+      {
+        win32_print("Cannot read font texture!\n");
+      }
+
+      if (file_size != 1024 * 1024 * 4)
+      {
+        win32_print("Font texture size mismatch!\n");
+      }
+
+      glGenTextures(1, &tex_font);
+      glBindTexture(GL_TEXTURE_2D, tex_font);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (i32)w, (i32)h, 0, GL_RGBA, GL_UNSIGNED_BYTE, file_contents);
+      glActiveTexture(GL_TEXTURE0);
+
+      VirtualFree(file_contents, 0, MEM_RELEASE);
+    }
+
+    glGenVertexArrays(1, &font_vao);
+
     font_initialized = 1;
   }
 
   (void)state;
   (void)camera;
+
+  /* Rendering */
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glUseProgram(font_shader.header.program);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex_font);
+  glUniform3f(font_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+  glUniform1i(font_shader.loc_texture_font, 0);
+
+  glBindVertexArray(font_vao);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glBindVertexArray(0);
+
+  glDisable(GL_BLEND);
 }
 
 ZAI_API void zai_render_scene(win32_zai_state *state)
