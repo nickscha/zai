@@ -51,15 +51,6 @@ win32_zai_build.bat
 
 You can now run the `win32_zai.exe` program.
 
-### Running the program
-
-> [!IMPORTANT]
-> If you have downloaded the release executeable depending on your platform use `win32_zai_x64.exe` or `win32_zai_arm.exe`
-
-```bat
-win32_zai_x64.exe
-```
-
 ## "nostdlib" Motivation & Purpose
 
 nostdlib is a lightweight, minimalistic approach to C development that removes dependencies on the standard library. The motivation behind this project is to provide developers with greater control over their code by eliminating unnecessary overhead, reducing binary size, and enabling deployment in resource-constrained environments.
