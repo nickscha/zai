@@ -10,7 +10,7 @@ out vec4 FragColor;
 vec4 fontChar(vec2 p, int c) 
 {
     if (p.x<.0|| p.x>1. || p.y<0.|| p.y>1.) return vec4(0,0,0,1e5);
-	return textureGrad(tex_font, p/16. + fract( vec2(c, 15-c/16) / 16. ), dFdx(p/16.),dFdy(p/16.) );
+	return textureGrad(tex_font, p/16. + fract(vec2(c, 15-c/16)/16.), dFdx(p/16.),dFdy(p/16.) );
 }
 
 void mainImage(out vec4 outColor, in vec2 fragCoord)
