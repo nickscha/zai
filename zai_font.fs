@@ -22,8 +22,9 @@ void mainImage(out vec4 outColor, in vec2 fragCoord)
     float FontSize = 3.;
     vec2 U = ( fragCoord - position)*64.0/FontSize;
 
-    // "Zai Engine"
-    C(26);C(33);C(41);C(-32);C(5);C(46);C(39);C(41);C(46);C(37);
+    C(26);C(33);C(41);                  // "Zai"
+    C(-32);                             // " "
+    C(5);C(46);C(39);C(41);C(46);C(37); // "Engine"
 
     outColor = outColor.xxxx;
 }
