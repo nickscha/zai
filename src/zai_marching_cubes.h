@@ -3,7 +3,6 @@
 
 #include "zai_types.h"
 #include "zai_math_linear_algebra.h"
-#include "zai_transvoxel.h"
 
 /* #############################################################################
  * # [SECTION] Marchinge Cubes Configurations
