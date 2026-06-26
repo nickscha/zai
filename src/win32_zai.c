@@ -2125,7 +2125,7 @@ ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
         win32_print("Cannot read font texture!\n");
       }
 
-      if (file_size != 1024 * 1024 * 4)
+      if (file_size != w * h * 4)
       {
         win32_print("Font texture size mismatch!\n");
       }
