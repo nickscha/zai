@@ -16,6 +16,8 @@ LICENSE
 #include "zai_noise.h"
 #include "zai_surface_nets.h"
 #include "zai_marching_cubes.h"
+#include "zai_sparse_grid.h"
+#include "zai_sdf_scene.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
@@ -935,6 +937,44 @@ typedef struct shader_font_new
 
 } shader_font_new;
 
+typedef struct shader_main
+{
+  shader_header header;
+
+  i32 loc_iResolution;
+  i32 loc_iTime;
+  i32 loc_iTimeDelta;
+  i32 loc_iFrame;
+  i32 loc_iFrameRate;
+  i32 loc_iMouse;
+  i32 loc_iTextureInfo;
+  i32 loc_iTexture;
+  i32 loc_iController;
+
+  i32 loc_brick_map_texture;
+  i32 loc_atlas_texture;
+  i32 loc_material_texture;
+  i32 loc_palette_texture;
+
+  i32 loc_brick_map_dim;
+  i32 loc_atlas_brick_dim;
+
+  i32 loc_inverse_atlas_size;
+  i32 loc_grid_start;
+  i32 loc_cell_size;
+  i32 loc_cell_diagonal;
+  i32 loc_truncation;
+  i32 loc_cell_size_inverse;
+
+  /* Camera */
+  i32 loc_camera_position;
+  i32 loc_camera_forward;
+  i32 loc_camera_right;
+  i32 loc_camera_up;
+  i32 loc_camera_forward_scaled;
+
+} shader_main;
+
 static u32 opengl_failed_function_load_count = 0;
 
 ZAI_API PROC win32_opengl_load_function(s8 *name)
@@ -1194,15 +1234,6 @@ ZAI_API u32 opengl_shader_load(shader_header *shader, s8 *shader_code_vertex, s8
   return 1;
 }
 
-static s8 *shader_code_vertex =
-    "#version 330 core\n"
-    "vec2 quad[3]=vec2[3]("
-    "vec2(-1.0,-1.0),"
-    "vec2(3.0,-1.0),"
-    "vec2(-1.0,3.0)"
-    ");"
-    "void main(){gl_Position=vec4(quad[gl_VertexID],0.0,1.0);}";
-
 ZAI_API void opengl_shader_load_shader_font(shader_font *shader)
 {
   static s8 *shader_font_code_vertex =
@@ -1251,6 +1282,15 @@ ZAI_API void opengl_shader_load_shader_font(shader_font *shader)
     shader->loc_iTexture = glGetUniformLocation(shader->header.program, "iTexture");
   }
 }
+
+static s8 *shader_code_vertex =
+    "#version 330 core\n"
+    "vec2 quad[3]=vec2[3]("
+    "vec2(-1.0,-1.0),"
+    "vec2(3.0,-1.0),"
+    "vec2(-1.0,3.0)"
+    ");"
+    "void main(){gl_Position=vec4(quad[gl_VertexID],0.0,1.0);}";
 
 ZAI_API void opengl_shader_load_shader_recording(shader_recording *shader)
 {
@@ -1379,6 +1419,235 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
   }
 
   zai_camera_update(camera);
+}
+
+ZAI_API void zai_create_sdf_grid(win32_zai_state *state, zai_sparse_grid *grid, zai_vec3 grid_center, u32 grid_cell_count, f32 grid_cell_size)
+{
+  zai_sparse_grid_initialize(grid, grid_center, grid_cell_count, grid_cell_size);
+
+  grid->brick_map_data = VirtualAlloc(0, grid->brick_map_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+  ZAI_PROFILER_BEGIN(sparse_grid_pass_01);
+  zai_sparse_grid_pass_01_fill_brick_map(grid, zai_sdf_scene, state);
+  ZAI_PROFILER_END(sparse_grid_pass_01);
+
+  grid->atlas_data = VirtualAlloc(0, grid->atlas_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  grid->material_data = VirtualAlloc(0, grid->atlas_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+
+  /*
+    state->mem_brick_map_bytes = grid->brick_map_bytes;
+    state->mem_atlas_bytes = grid->atlas_bytes;
+    state->grid_active_brick_count = grid->brick_map_active_bricks_count;
+    state->grid_atlas_dimensions = grid->atlas_dimensions;
+  */
+
+  ZAI_PROFILER_BEGIN(sparse_grid_pass_02);
+  zai_sparse_grid_pass_02_fill_atlas(grid, zai_sdf_scene, state);
+  ZAI_PROFILER_END(sparse_grid_pass_02);
+}
+
+ZAI_API void zai_render_sdf_grid(win32_zai_state *state, zai_camera *camera)
+{
+  static u8 grid_initialized = 0;
+  static shader_main main_shader = {0};
+  static u32 main_vao;
+  static zai_sparse_grid grid_lod0 = {0};
+  static u32 brickMapTex;
+  static u32 atlasTex;
+  static u32 materialTex;
+  static u32 paletteTex;
+  static f32 cell_size_inverse = 0.0f;
+
+  /* Camera */
+  static zai_vec3 camera_forward_scaled;
+
+  if (!grid_initialized)
+  {
+    u32 grid_cell_count = 128;
+    f32 grid_cell_size = 1.0f / 16.0f;
+
+    u32 size_code_vertex = 0;
+    u32 size_code_fragment = 0;
+    u8 *shader_code_vertex = win32_file_read("zai_font.vs", &size_code_vertex);
+    u8 *shader_code_fragment = win32_file_read("zai.fs", &size_code_fragment);
+
+    if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+    {
+      win32_print("Cannot load sdf shader files!\n");
+      return;
+    }
+
+    if (opengl_shader_load(&main_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+    {
+      main_shader.loc_iResolution = glGetUniformLocation(main_shader.header.program, "iResolution");
+      main_shader.loc_iTime = glGetUniformLocation(main_shader.header.program, "iTime");
+      main_shader.loc_iTimeDelta = glGetUniformLocation(main_shader.header.program, "iTimeDelta");
+      main_shader.loc_iFrame = glGetUniformLocation(main_shader.header.program, "iFrame");
+      main_shader.loc_iFrameRate = glGetUniformLocation(main_shader.header.program, "iFrameRate");
+      main_shader.loc_iMouse = glGetUniformLocation(main_shader.header.program, "iMouse");
+      main_shader.loc_iTextureInfo = glGetUniformLocation(main_shader.header.program, "iTextureInfo");
+      main_shader.loc_iTexture = glGetUniformLocation(main_shader.header.program, "iTexture");
+      main_shader.loc_iController = glGetUniformLocation(main_shader.header.program, "iController");
+
+      main_shader.loc_brick_map_texture = glGetUniformLocation(main_shader.header.program, "uBrickMap");
+      main_shader.loc_atlas_texture = glGetUniformLocation(main_shader.header.program, "uAtlas");
+      main_shader.loc_material_texture = glGetUniformLocation(main_shader.header.program, "uMaterial");
+      main_shader.loc_palette_texture = glGetUniformLocation(main_shader.header.program, "uPalette");
+
+      main_shader.loc_brick_map_dim = glGetUniformLocation(main_shader.header.program, "uBrickMapDim");
+      main_shader.loc_atlas_brick_dim = glGetUniformLocation(main_shader.header.program, "uAtlasBrickDim");
+      main_shader.loc_inverse_atlas_size = glGetUniformLocation(main_shader.header.program, "uInvAtlasSize");
+      main_shader.loc_grid_start = glGetUniformLocation(main_shader.header.program, "uGridStart");
+      main_shader.loc_cell_size = glGetUniformLocation(main_shader.header.program, "uCellSize");
+      main_shader.loc_cell_size_inverse = glGetUniformLocation(main_shader.header.program, "uInvCellSize");
+      main_shader.loc_cell_diagonal = glGetUniformLocation(main_shader.header.program, "uCellDiagonal");
+      main_shader.loc_truncation = glGetUniformLocation(main_shader.header.program, "uTruncation");
+
+      /* Camera */
+      main_shader.loc_camera_position = glGetUniformLocation(main_shader.header.program, "camera_position");
+      main_shader.loc_camera_forward = glGetUniformLocation(main_shader.header.program, "camera_forward");
+      main_shader.loc_camera_right = glGetUniformLocation(main_shader.header.program, "camera_right");
+      main_shader.loc_camera_up = glGetUniformLocation(main_shader.header.program, "camera_up");
+      main_shader.loc_camera_forward_scaled = glGetUniformLocation(main_shader.header.program, "camera_forward_scaled");
+    }
+    else
+    {
+      win32_print("Cannot compile sdf shaders!\n");
+    }
+
+    VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+    VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+
+    ZAI_PROFILER_BEGIN(sdf_scene_build);
+    zai_sdf_scene_build();
+    ZAI_PROFILER_END(sdf_scene_build);
+
+    ZAI_PROFILER_BEGIN(sparse_grid_create_lod0);
+    zai_create_sdf_grid(state, &grid_lod0, zai_vec3_zero, grid_cell_count, grid_cell_size); /* LOD 0 */
+    ZAI_PROFILER_END(sparse_grid_create_lod0);
+
+    cell_size_inverse = 1.0f / grid_lod0.cell_size;
+
+    /* Generate a dummy vao with no buffer */
+    glGenVertexArrays(1, &main_vao);
+    glBindVertexArray(main_vao);
+
+    /* Brick Map */
+    glGenTextures(1, &brickMapTex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glBindTexture(GL_TEXTURE_3D, brickMapTex);
+
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R16UI,
+                 (i32)grid_lod0.brick_map_dimensions,
+                 (i32)grid_lod0.brick_map_dimensions,
+                 (i32)grid_lod0.brick_map_dimensions,
+                 0, GL_RED_INTEGER, GL_UNSIGNED_SHORT, grid_lod0.brick_map_data);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    /* Atlas Texture */
+    glGenTextures(1, &atlasTex);
+    glBindTexture(GL_TEXTURE_3D, atlasTex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8_SNORM,
+                 (i32)grid_lod0.atlas_dimensions.x,
+                 (i32)grid_lod0.atlas_dimensions.y,
+                 (i32)grid_lod0.atlas_dimensions.z,
+                 0, GL_RED, GL_BYTE, grid_lod0.atlas_data);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAX_LEVEL, 0);
+
+    /* Material Texture */
+    (void)GL_R8UI;
+    (void)GL_RED_INTEGER;
+    (void)GL_NEAREST;
+
+    glGenTextures(1, &materialTex);
+    glBindTexture(GL_TEXTURE_3D, materialTex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R8,
+                 (i32)grid_lod0.atlas_dimensions.x,
+                 (i32)grid_lod0.atlas_dimensions.y,
+                 (i32)grid_lod0.atlas_dimensions.z,
+                 0, GL_RED, GL_UNSIGNED_BYTE, grid_lod0.material_data);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    /* Palette Texture */
+    glGenTextures(1, &paletteTex);
+    glBindTexture(GL_TEXTURE_1D, paletteTex);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB8, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, zai_sdf_scene_materials);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+
+    grid_initialized = 1;
+  }
+
+  /* Camera Setup */
+  camera_forward_scaled = zai_vec3_mulf(camera->forward, 1.5f);
+
+  /******************************/
+  /* Draw                       */
+  /******************************/
+  ZAI_PROFILER_BEGIN(gl_draw);
+
+  glUseProgram(main_shader.header.program);
+
+  /* General uniforms */
+  glUniform3f(main_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+  glUniform1f(main_shader.loc_iTime, (f32)state->platform_state.timing.time_elapsed);
+
+  /* Camera uniforms */
+  glUniform3f(main_shader.loc_camera_position, camera->position.x, camera->position.y, camera->position.z);
+  glUniform3f(main_shader.loc_camera_forward, camera->forward.x, camera->forward.y, camera->forward.z);
+  glUniform3f(main_shader.loc_camera_right, camera->right.x, camera->right.y, camera->right.z);
+  glUniform3f(main_shader.loc_camera_up, camera->up.x, camera->up.y, camera->up.z);
+  glUniform3f(main_shader.loc_camera_forward_scaled, camera_forward_scaled.x, camera_forward_scaled.y, camera_forward_scaled.z);
+
+  /* Grid uniforms */
+  glUniform3f(main_shader.loc_brick_map_dim, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE, (f32)grid_lod0.brick_map_dimensions * ZAI_BRICK_SIZE);
+  glUniform3i(main_shader.loc_atlas_brick_dim, (i32)grid_lod0.atlas_bricks_per_row, (i32)0, (i32)0);
+  glUniform3f(main_shader.loc_inverse_atlas_size, grid_lod0.atlas_dimensions_inverse.x, grid_lod0.atlas_dimensions_inverse.y, grid_lod0.atlas_dimensions_inverse.z);
+  glUniform3f(main_shader.loc_grid_start, grid_lod0.start.x, grid_lod0.start.y, grid_lod0.start.z);
+  glUniform1f(main_shader.loc_cell_size, grid_lod0.cell_size);
+  glUniform3f(main_shader.loc_cell_size_inverse, cell_size_inverse, cell_size_inverse, cell_size_inverse);
+  glUniform1f(main_shader.loc_truncation, grid_lod0.truncation_distance);
+
+  /* Bind textures to texture units */
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_3D, brickMapTex);
+  glUniform1i(main_shader.loc_brick_map_texture, 0);
+
+  glActiveTexture(GL_TEXTURE1);
+  glBindTexture(GL_TEXTURE_3D, atlasTex);
+  glUniform1i(main_shader.loc_atlas_texture, 1);
+
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_3D, materialTex);
+  glUniform1i(main_shader.loc_material_texture, 2);
+
+  glActiveTexture(GL_TEXTURE3);
+  glBindTexture(GL_TEXTURE_1D, paletteTex);
+  glUniform1i(main_shader.loc_palette_texture, 3);
+
+  glBindVertexArray(main_vao);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  ZAI_PROFILER_END(gl_draw);
 }
 
 ZAI_API void zai_render_sky(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir, f32 camera_basis[9])
@@ -2194,7 +2463,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   {
     active_scene++;
 
-    if (active_scene > 2)
+    if (active_scene > 3)
     {
       active_scene = 0;
     }
@@ -2216,7 +2485,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
       camera_speed = 25.0f;
     }
-    else
+    else if (active_scene == 2)
     {
       /* Marching Cubes */
       camera = zai_camera_init();
@@ -2224,6 +2493,15 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       camera.position.z = 80.0f;
 
       camera_speed = 25.0f;
+    }
+    else
+    {
+      /* SDF Grid */
+      camera = zai_camera_init();
+      camera.position.y = 1.0f;
+      camera.position.z = 2.0f;
+
+      camera_speed = 1.0f;
     }
   }
 
@@ -2310,19 +2588,25 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   }
 
   /* Render */
-  zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
 
   if (active_scene == 0)
   {
+    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
     zai_render_terrain(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
   }
   else if (active_scene == 1)
   {
+    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
     zai_render_surface_nets(state, &camera);
+  }
+  else if (active_scene == 2)
+  {
+    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+    zai_render_marching_cubes(state, &camera);
   }
   else
   {
-    zai_render_marching_cubes(state, &camera);
+    zai_render_sdf_grid(state, &camera);
   }
 
   /* Render text */
@@ -2796,7 +3080,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
       if (state.ui_enabled)
       {
 
-#define GLYPH_BUFFER_SIZE 2048
+#define GLYPH_BUFFER_SIZE 4192
         static glyph glyph_buffer[GLYPH_BUFFER_SIZE];
         static u32 glyph_buffer_count = 0; /* Total glyph count */
         static u32 glyph_count_static = 0; /* Static glyphs only need to be buffered once */
