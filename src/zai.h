@@ -107,7 +107,7 @@ typedef enum zai_platform_input_keyboard_keys
     ZAI_KEYBOARD_KEY_ALT,
     ZAI_KEYBOARD_KEY_ESCAPE,
 
-    /* movement keys */
+    /* movement/arrow keys */
     ZAI_KEYBOARD_KEY_LEFT,
     ZAI_KEYBOARD_KEY_UP,
     ZAI_KEYBOARD_KEY_RIGHT,
