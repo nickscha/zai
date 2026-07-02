@@ -1399,6 +1399,16 @@ ZAI_API ZAI_INLINE void zai_update_camera_movement(win32_zai_state *state, zai_c
     }
   }
 
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_LEFT])
+  {
+    camera->yaw -= zai_minf(cam_speed * 0.1f, 89.0f);
+  }
+
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_RIGHT])
+  {
+    camera->yaw += zai_minf(cam_speed * 0.1f, 89.0f);
+  }
+
   /* Mouse handling */
   if (state->platform_state.input.mouse.keys_is_down[ZAI_MOUSE_KEY_RIGHT] && !state->platform_state.input.mouse.keys_was_down[ZAI_MOUSE_KEY_RIGHT])
   {
