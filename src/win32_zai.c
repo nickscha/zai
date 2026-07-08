@@ -2339,15 +2339,23 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
   if (!tiles_initialized)
   {
-    ZAI_PROFILER_BEGIN(zai_tile_setup);
+    ZAI_PROFILER_BEGIN(tile_init);
     zai_tiles_init(&t, camera_tile_x, camera_tile_z);
-    ZAI_PROFILER_END(zai_tile_setup);
+    ZAI_PROFILER_END(tile_init);
+
+    ZAI_PROFILER_BEGIN(tile_update);
+    zai_tiles_update(&t, camera_tile_x, camera_tile_z);
+    ZAI_PROFILER_END(tile_update);
 
     tiles_initialized = 1;
   }
 
   (void)state;
   (void)camera;
+
+  ZAI_PROFILER_BEGIN(tile_update);
+  zai_tiles_update(&t, camera_tile_x, camera_tile_z);
+  ZAI_PROFILER_END(tile_update);
 }
 
 ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
