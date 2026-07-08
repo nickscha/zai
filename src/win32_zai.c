@@ -945,6 +945,7 @@ typedef struct shader_tiles
 
   i32 loc_tile_offset;
   i32 loc_view_projection;
+  i32 loc_is_dirty;
 
 } shader_tiles;
 
@@ -2379,6 +2380,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       {
         tiles_shader.loc_tile_offset = glGetUniformLocation(tiles_shader.header.program, "u_tile_offset");
         tiles_shader.loc_view_projection = glGetUniformLocation(tiles_shader.header.program, "u_vp");
+        tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
       }
       else
       {
@@ -2427,7 +2429,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   /* Process dirty tiles */
   ZAI_PROFILER_BEGIN(tile_process_dirty);
   {
-    i32 updates_per_frame = 2;
+    i32 updates_per_frame = 1;
 
     while (updates_per_frame > 0 && t.dirty_indices_count > 0)
     {
@@ -2467,7 +2469,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
+      u8 is_dirty = zai_tile_is_dirty(&t, i);
+
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
+      glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
