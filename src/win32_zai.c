@@ -2421,6 +2421,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   (void)state;
   (void)camera;
 
+  /* Update camera tile based on cmaera world position */
+  camera_tile_x = (i32) zai_floorf(camera->position.x);
+  camera_tile_z = (i32) zai_floorf(camera->position.z);
+
   /* Check for new dirty tiles */
   ZAI_PROFILER_BEGIN(tile_update);
   zai_tiles_update(&t, camera_tile_x, camera_tile_z);
