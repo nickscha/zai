@@ -2330,6 +2330,26 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   ZAI_PROFILER_END(render_terrain);
 }
 
+ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
+{
+  static u8 tiles_initialized = 0;
+  static zai_tiles t = {0};
+  static i32 camera_tile_x = 0;
+  static i32 camera_tile_z = 0;
+
+  if (!tiles_initialized)
+  {
+    ZAI_PROFILER_BEGIN(zai_tile_setup);
+    zai_tiles_init(&t, camera_tile_x, camera_tile_z);
+    ZAI_PROFILER_END(zai_tile_setup);
+
+    tiles_initialized = 1;
+  }
+
+  (void)state;
+  (void)camera;
+}
+
 ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
 {
   static u8 font_initialized = 0;
@@ -2451,7 +2471,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   {
     active_scene++;
 
-    if (active_scene > 3)
+    if (active_scene > 4)
     {
       active_scene = 0;
     }
@@ -2482,7 +2502,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
 
       camera_speed = 25.0f;
     }
-    else
+    else if (active_scene == 3)
     {
       /* SDF Grid */
       camera = zai_camera_init();
@@ -2490,6 +2510,15 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       camera.position.z = 2.0f;
 
       camera_speed = 1.0f;
+    }
+    else
+    {
+      /* Tiles */
+      camera = zai_camera_init();
+      camera.position.y = 1.0f;
+      camera.position.z = 2.0f;
+
+      camera_speed = 0.5f;
     }
   }
 
@@ -2592,9 +2621,14 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
     zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
     zai_render_marching_cubes(state, &camera);
   }
-  else
+  else if (active_scene == 3)
   {
     zai_render_sdf_grid(state, &camera);
+  }
+  else
+  {
+    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+    zai_render_tiles(state, &camera);
   }
 
   /* Render text */

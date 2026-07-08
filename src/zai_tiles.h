@@ -7,8 +7,8 @@
  * # [SECTION] Tiling Logic
  * #############################################################################
  */
-#define TILES_SIDE 5
-#define TILES_TOTAL (TILES_SIDE * TILES_SIDE)
+#define ZAI_TILES_PER_SIDE 5
+#define ZAI_TILES_TOTAL (ZAI_TILES_PER_SIDE * ZAI_TILES_PER_SIDE)
 
 /* SoA tiles setup */
 typedef struct zai_tiles
@@ -19,12 +19,12 @@ typedef struct zai_tiles
     i32 origin_z;   /* The bottom left origin Z */
 
     /* Data Arrays (Indexed via toroidal wrapping) */
-    i32 tile_x[TILES_TOTAL];
-    i32 tile_z[TILES_TOTAL];
+    i32 tile_x[ZAI_TILES_TOTAL];
+    i32 tile_z[ZAI_TILES_TOTAL];
 
     /* Sparse Dirty flag tracking */
-    u16 dirty_indices[TILES_TOTAL]; /* Which index ot the tile_x/z is marked dirty */
-    u16 dirty_indices_count;        /* Total number of dirty tile indices */
+    u16 dirty_indices[ZAI_TILES_TOTAL]; /* Which index ot the tile_x/z is marked dirty */
+    u16 dirty_indices_count;            /* Total number of dirty tile indices */
 
 } zai_tiles;
 
@@ -41,9 +41,9 @@ ZAI_API ZAI_INLINE i32 zai_absi(i32 v)
 
 ZAI_API ZAI_INLINE u32 zai_tile_index(i32 x, i32 z)
 {
-    i32 slot_x = zai_modi(x, TILES_SIDE);
-    i32 slot_z = zai_modi(z, TILES_SIDE);
-    return (u32)(slot_z * TILES_SIDE + slot_x);
+    i32 slot_x = zai_modi(x, ZAI_TILES_PER_SIDE);
+    i32 slot_z = zai_modi(z, ZAI_TILES_PER_SIDE);
+    return (u32)(slot_z * ZAI_TILES_PER_SIDE + slot_x);
 }
 
 ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
@@ -64,14 +64,14 @@ ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
 ZAI_API void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
     i32 x, z;
-    i32 half = TILES_SIDE / 2;
+    i32 half = ZAI_TILES_PER_SIDE / 2;
 
     t->origin_x = camera_tile_x - half;
     t->origin_z = camera_tile_z - half;
 
-    for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+    for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
     {
-        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        for (x = t->origin_x; x < t->origin_x + ZAI_TILES_PER_SIDE; ++x)
         {
             u32 i = zai_tile_index(x, z);
 
@@ -85,14 +85,14 @@ ZAI_API void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 /* Toroidal wrap around */
 ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
-    i32 half = TILES_SIDE / 2;
+    i32 half = ZAI_TILES_PER_SIDE / 2;
     i32 new_origin_x = camera_tile_x - half;
     i32 new_origin_z = camera_tile_z - half;
     i32 x, z;
 
     /* If camera is to far away reinitialize everyting */
-    if (zai_absi(new_origin_x - t->origin_x) >= TILES_SIDE ||
-        zai_absi(new_origin_z - t->origin_z) >= TILES_SIDE)
+    if (zai_absi(new_origin_x - t->origin_x) >= ZAI_TILES_PER_SIDE ||
+        zai_absi(new_origin_z - t->origin_z) >= ZAI_TILES_PER_SIDE)
     {
         zai_tiles_init(t, camera_tile_x, camera_tile_z);
         return;
@@ -101,9 +101,9 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
     /* Move East */
     while (t->origin_x < new_origin_x)
     {
-        i32 target_x = t->origin_x + TILES_SIDE;
+        i32 target_x = t->origin_x + ZAI_TILES_PER_SIDE;
 
-        for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+        for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
         {
             u32 i = zai_tile_index(target_x, z);
 
@@ -123,7 +123,7 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
         t->origin_x--;
         target_x = t->origin_x;
 
-        for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+        for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
         {
             u32 i = zai_tile_index(target_x, z);
 
@@ -136,9 +136,9 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
     /* Move South */
     while (t->origin_z < new_origin_z)
     {
-        i32 target_z = t->origin_z + TILES_SIDE;
+        i32 target_z = t->origin_z + ZAI_TILES_PER_SIDE;
 
-        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        for (x = t->origin_x; x < t->origin_x + ZAI_TILES_PER_SIDE; ++x)
         {
             u32 i = zai_tile_index(x, target_z);
 
@@ -158,7 +158,7 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
         t->origin_z--;
         target_z = t->origin_z;
 
-        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        for (x = t->origin_x; x < t->origin_x + ZAI_TILES_PER_SIDE; ++x)
         {
             u32 i = zai_tile_index(x, target_z);
 
