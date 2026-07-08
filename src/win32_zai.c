@@ -2391,9 +2391,15 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     /* Setup Buffer Objects  */
     {
+      /*
       f32 quad_vertices[] = {
           0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
           0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
+      */
+
+      f32 quad_vertices[] = {
+          -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f,
+          -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f};
 
       glGenVertexArrays(1, &quad_vao);
       glGenBuffers(1, &quad_vbo);
@@ -2403,7 +2409,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
 
       glEnableVertexAttribArray(0);
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(f32), (void *)0);
       glBindVertexArray(0);
     }
 
@@ -2489,8 +2495,6 @@ ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
       u32 size_code_fragment = 0;
       u8 *shader_code_vertex = win32_file_read("zai_font.vs", &size_code_vertex);
       u8 *shader_code_fragment = win32_file_read("zai_font.fs", &size_code_fragment);
-
-      ZAI_PROFILER_BEGIN(setup_terrain);
 
       if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
       {
@@ -2639,9 +2643,8 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       /* Tiles */
       camera = zai_camera_init();
       camera.position.y = 1.0f;
-      camera.position.z = 2.0f;
 
-      camera_speed = 0.5f;
+      camera_speed = 1.0f;
     }
   }
 
