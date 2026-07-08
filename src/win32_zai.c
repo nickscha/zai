@@ -2356,6 +2356,25 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   ZAI_PROFILER_BEGIN(tile_update);
   zai_tiles_update(&t, camera_tile_x, camera_tile_z);
   ZAI_PROFILER_END(tile_update);
+
+  ZAI_PROFILER_BEGIN(tile_process_dirty);
+  {
+    i32 updates_per_frame = 2;
+
+    while (updates_per_frame > 0 && t.dirty_indices_count > 0)
+    {
+      /* 1. Grab the very last item in the queue */
+      u32 last_idx = t.dirty_indices_count - 1;
+      u32 tile_idx = t.dirty_indices[last_idx];
+
+      (void)tile_idx;
+
+      /* 3. Pop the item off the back instantly */
+      t.dirty_indices_count--;
+      updates_per_frame--;
+    }
+  }
+  ZAI_PROFILER_END(tile_process_dirty);
 }
 
 ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
