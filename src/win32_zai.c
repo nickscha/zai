@@ -2339,6 +2339,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
   if (!tiles_initialized)
   {
+    /* Setup tiles */
     ZAI_PROFILER_BEGIN(tile_init);
     zai_tiles_init(&t, camera_tile_x, camera_tile_z);
     ZAI_PROFILER_END(tile_init);
@@ -2347,34 +2348,54 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     zai_tiles_update(&t, camera_tile_x, camera_tile_z);
     ZAI_PROFILER_END(tile_update);
 
+    /* Setup shaders */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_tiles.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_tiles.fs", &size_code_fragment);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load tiles shader files!\n");
+        return;
+      }
+    }
+
     tiles_initialized = 1;
   }
 
   (void)state;
   (void)camera;
 
+  /* Check for new dirty tiles */
   ZAI_PROFILER_BEGIN(tile_update);
   zai_tiles_update(&t, camera_tile_x, camera_tile_z);
   ZAI_PROFILER_END(tile_update);
 
+  /* Process dirty tiles */
   ZAI_PROFILER_BEGIN(tile_process_dirty);
   {
     i32 updates_per_frame = 2;
 
     while (updates_per_frame > 0 && t.dirty_indices_count > 0)
     {
-      /* 1. Grab the very last item in the queue */
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
 
       (void)tile_idx;
 
-      /* 3. Pop the item off the back instantly */
       t.dirty_indices_count--;
       updates_per_frame--;
     }
   }
   ZAI_PROFILER_END(tile_process_dirty);
+
+  /* Render Tiles */
+  ZAI_PROFILER_BEGIN(tile_render);
+  {
+  }
+  ZAI_PROFILER_END(tile_render);
 }
 
 ZAI_API void zai_render_font(win32_zai_state *state, zai_camera *camera)
@@ -2632,7 +2653,6 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   }
 
   /* Render */
-
   if (active_scene == 0)
   {
     zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
