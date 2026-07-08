@@ -8,6 +8,7 @@ LICENSE
 */
 #include "zai_types.h"
 #include "zai.h"
+#include "zai_geometry.h"
 #include "zai_font.h"
 #include "zai_string_builder.h"
 #include "zai_profiler.h"
@@ -2181,31 +2182,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 
     /* Generate Grid */
     {
-      i32 x;
-      i32 z;
-      i32 i = 0;
-
-      /* indices */
-      for (z = 0; z < GRID_RES - 1; ++z)
-      {
-        for (x = 0; x < GRID_RES - 1; ++x)
-        {
-          u16 i0 = (u16)(z * GRID_RES + x);
-          u16 i1 = i0 + 1;
-          u16 i2 = i0 + GRID_RES;
-          u16 i3 = i2 + 1;
-
-          gridIndices[i++] = i0;
-          gridIndices[i++] = i2;
-          gridIndices[i++] = i1;
-
-          gridIndices[i++] = i1;
-          gridIndices[i++] = i2;
-          gridIndices[i++] = i3;
-        }
-      }
-
-      gridIndexCount = i;
+      gridIndexCount = zai_geometry_grid(GRID_RES, gridIndices);
     }
 
     glGenVertexArrays(1, &terrain_vao);
