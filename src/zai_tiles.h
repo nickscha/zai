@@ -1,0 +1,172 @@
+#ifndef ZAI_TILES_H
+#define ZAI_TILES_H
+
+#include "zai_types.h"
+
+/* #############################################################################
+ * # [SECTION] Tiling Logic
+ * #############################################################################
+ */
+#define TILES_SIDE 5
+#define TILES_TOTAL (TILES_SIDE * TILES_SIDE)
+
+/* SoA tiles setup */
+typedef struct zai_tiles
+{
+    /* General information */
+    u32 tiles_size; /* Total number of tiles    */
+    i32 origin_x;   /* The bottom left origin X */
+    i32 origin_z;   /* The bottom left origin Z */
+
+    /* Data Arrays (Indexed via toroidal wrapping) */
+    i32 tile_x[TILES_TOTAL];
+    i32 tile_z[TILES_TOTAL];
+
+    /* Sparse Dirty flag tracking */
+    u16 dirty_indices[TILES_TOTAL];
+    u16 dirty_indices_count;
+
+} zai_tiles;
+
+ZAI_API ZAI_INLINE i32 zai_modi(i32 a, i32 b)
+{
+    i32 r = a % b;
+    return r < 0 ? r + b : r;
+}
+
+ZAI_API ZAI_INLINE i32 zai_absi(i32 v)
+{
+    return v < 0 ? -v : v;
+}
+
+ZAI_API ZAI_INLINE u32 zai_tile_index(i32 x, i32 z)
+{
+    i32 slot_x = zai_modi(x, TILES_SIDE);
+    i32 slot_z = zai_modi(z, TILES_SIDE);
+    return (u32)(slot_z * TILES_SIDE + slot_x);
+}
+
+ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
+{
+    u16 i;
+
+    for (i = 0; i < t->dirty_indices_count; ++i)
+    {
+        if (t->dirty_indices[i] == tile_index)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+ZAI_API void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
+{
+    i32 x, z;
+    i32 half = TILES_SIDE / 2;
+
+    t->origin_x = camera_tile_x - half;
+    t->origin_z = camera_tile_z - half;
+
+    for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+    {
+        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        {
+            u32 i = zai_tile_index(x, z);
+
+            t->tile_x[i] = x;
+            t->tile_z[i] = z;
+            t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+    }
+}
+
+/* Toroidal wrap around */
+ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
+{
+    i32 half = TILES_SIDE / 2;
+    i32 new_origin_x = camera_tile_x - half;
+    i32 new_origin_z = camera_tile_z - half;
+    i32 x, z;
+
+    /* If camera is to far away reinitialize everyting */
+    if (zai_absi(new_origin_x - t->origin_x) >= TILES_SIDE ||
+        zai_absi(new_origin_z - t->origin_z) >= TILES_SIDE)
+    {
+        zai_tiles_init(t, camera_tile_x, camera_tile_z);
+        return;
+    }
+
+    /* Move East */
+    while (t->origin_x < new_origin_x)
+    {
+        i32 target_x = t->origin_x + TILES_SIDE;
+
+        for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+        {
+            u32 i = zai_tile_index(target_x, z);
+
+            t->tile_x[i] = target_x;
+            t->tile_z[i] = z;
+            t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+
+        t->origin_x++;
+    }
+
+    /* Move West */
+    while (t->origin_x > new_origin_x)
+    {
+        i32 target_x;
+
+        t->origin_x--;
+        target_x = t->origin_x;
+
+        for (z = t->origin_z; z < t->origin_z + TILES_SIDE; ++z)
+        {
+            u32 i = zai_tile_index(target_x, z);
+
+            t->tile_x[i] = target_x;
+            t->tile_z[i] = z;
+            t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+    }
+
+    /* Move South */
+    while (t->origin_z < new_origin_z)
+    {
+        i32 target_z = t->origin_z + TILES_SIDE;
+
+        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        {
+            u32 i = zai_tile_index(x, target_z);
+
+            t->tile_x[i] = x;
+            t->tile_z[i] = target_z;
+            t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+
+        t->origin_z++;
+    }
+
+    /* Move North */
+    while (t->origin_z > new_origin_z)
+    {
+        i32 target_z;
+
+        t->origin_z--;
+        target_z = t->origin_z;
+
+        for (x = t->origin_x; x < t->origin_x + TILES_SIDE; ++x)
+        {
+            u32 i = zai_tile_index(x, target_z);
+
+            t->tile_x[i] = x;
+            t->tile_z[i] = target_z;
+            t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+    }
+}
+
+#endif /* ZAI_TILES_H */

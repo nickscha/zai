@@ -19,6 +19,7 @@ LICENSE
 #include "zai_marching_cubes.h"
 #include "zai_sparse_grid.h"
 #include "zai_sdf_scene.h"
+#include "zai_tiles.h"
 #include "win32_zai_opengl.h"
 #include "win32_zai_api.h"
 #include "win32_zai_xinput.h"
