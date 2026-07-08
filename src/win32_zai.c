@@ -2439,22 +2439,33 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   /* Render Tiles */
   ZAI_PROFILER_BEGIN(tile_render);
   {
+    static u8 wireframe_enabled = 0;
+
     u32 i;
 
     zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(camera->fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 64000.0f);
     zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->forward), camera->up);
     zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
 
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_TAB] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_TAB])
+    {
+      wireframe_enabled = !wireframe_enabled;
+    }
+
     glUseProgram(tiles_shader.header.program);
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
 
     glBindVertexArray(quad_vao);
+
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
+
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     glBindVertexArray(0);
     glUseProgram(0);
