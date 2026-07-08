@@ -939,6 +939,15 @@ typedef struct shader_font_new
 
 } shader_font_new;
 
+typedef struct shader_tiles
+{
+  shader_header header;
+
+  i32 loc_tile_offset;
+  i32 loc_view_projection;
+
+} shader_tiles;
+
 typedef struct shader_main
 {
   shader_header header;
@@ -2337,6 +2346,11 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   static i32 camera_tile_x = 0;
   static i32 camera_tile_z = 0;
 
+  static shader_tiles tiles_shader = {0};
+
+  static u32 quad_vao;
+  static u32 quad_vbo;
+
   if (!tiles_initialized)
   {
     /* Setup tiles */
@@ -2360,6 +2374,37 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
         win32_print("Cannot load tiles shader files!\n");
         return;
       }
+
+      if (opengl_shader_load(&tiles_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        tiles_shader.loc_tile_offset = glGetUniformLocation(tiles_shader.header.program, "u_tile_offset");
+        tiles_shader.loc_view_projection = glGetUniformLocation(tiles_shader.header.program, "u_vp");
+      }
+      else
+      {
+        win32_print("Cannot compile tiles shaders!\n");
+      }
+
+      VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+      VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+    }
+
+    /* Setup Buffer Objects  */
+    {
+      f32 quad_vertices[] = {
+          0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+          0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
+
+      glGenVertexArrays(1, &quad_vao);
+      glGenBuffers(1, &quad_vbo);
+
+      glBindVertexArray(quad_vao);
+      glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
+      glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+
+      glEnableVertexAttribArray(0);
+      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+      glBindVertexArray(0);
     }
 
     tiles_initialized = 1;
@@ -2394,6 +2439,25 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   /* Render Tiles */
   ZAI_PROFILER_BEGIN(tile_render);
   {
+    u32 i;
+
+    zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(camera->fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 64000.0f);
+    zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->forward), camera->up);
+    zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+
+    glUseProgram(tiles_shader.header.program);
+    glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
+
+    glBindVertexArray(quad_vao);
+
+    for (i = 0; i < ZAI_TILES_TOTAL; ++i)
+    {
+      glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    glBindVertexArray(0);
+    glUseProgram(0);
   }
   ZAI_PROFILER_END(tile_render);
 }
