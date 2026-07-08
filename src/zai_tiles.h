@@ -14,9 +14,8 @@
 typedef struct zai_tiles
 {
     /* General information */
-    u32 tiles_size; /* Total number of tiles    */
-    i32 origin_x;   /* The bottom left origin X */
-    i32 origin_z;   /* The bottom left origin Z */
+    i32 origin_x; /* The bottom left origin X */
+    i32 origin_z; /* The bottom left origin Z */
 
     /* Data Arrays (Indexed via toroidal wrapping) */
     i32 tile_x[ZAI_TILES_TOTAL];

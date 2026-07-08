@@ -19,7 +19,7 @@ void main()
     gl_Position = u_vp * vec4(world_pos.x, 0.0, world_pos.y, 1.0);
 
     vec2 tile_grid_coord = floor(u_tile_offset.xy + vec2(0.5));
-    float r = hash(tile_grid_coord + vec2(0.0, 0.0));
+    float r = hash(tile_grid_coord + vec2(0.0, 0.0)) * 0.5;
     float g = hash(tile_grid_coord + vec2(1.0, 4.3));
     float b = hash(tile_grid_coord + vec2(2.5, 8.1));
 
