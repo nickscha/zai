@@ -23,8 +23,8 @@ typedef struct zai_tiles
     i32 tile_z[TILES_TOTAL];
 
     /* Sparse Dirty flag tracking */
-    u16 dirty_indices[TILES_TOTAL];
-    u16 dirty_indices_count;
+    u16 dirty_indices[TILES_TOTAL]; /* Which index ot the tile_x/z is marked dirty */
+    u16 dirty_indices_count;        /* Total number of dirty tile indices */
 
 } zai_tiles;
 
