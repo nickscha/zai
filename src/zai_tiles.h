@@ -60,6 +60,36 @@ ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
     return 0;
 }
 
+/*
+| Tile | World |
+| ---: | ----: |
+|   -1 |  -1.5 |
+|    0 |  -0.5 |
+|    1 |   0.5 |
+|    2 |   1.5 |
+*/
+ZAI_API ZAI_INLINE f32 zai_tile_to_world(i32 tile, f32 tile_size)
+{
+    return ((f32)tile - 0.5f) * tile_size;
+}
+
+/*
+| World | Tile |
+| ----: | ---: |
+|  -0.5 |    0 |
+|   0.0 |    0 |
+|  0.49 |    0 |
+|  0.50 |    1 |
+|  1.49 |    1 |
+|  1.50 |    2 |
+*/
+ZAI_API ZAI_INLINE i32 zai_world_to_tile(f32 world, f32 tile_size)
+{
+    f32 res = world / tile_size + 0.5f;
+    i32 i = (i32)res;
+    return (res < (f32)i) ? (i - 1) : i;
+}
+
 ZAI_API void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
     i32 x, z;
