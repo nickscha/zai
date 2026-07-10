@@ -2400,8 +2400,25 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       */
 
       f32 quad_vertices[] = {
+          0.0f,
+          0.0f,
+          1.0f,
+          0.0f,
+          1.0f,
+          -1.0f,
+          0.0f,
+          0.0f,
+          1.0f,
+          -1.0f,
+          0.0f,
+          -1.0f,
+      };
+
+      /*
+      f32 quad_vertices[] = {
           -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f,
           -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f};
+      */
 
       glGenVertexArrays(1, &quad_vao);
       glGenBuffers(1, &quad_vbo);
@@ -2422,8 +2439,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   (void)camera;
 
   /* Update camera tile based on cmaera world position */
-  camera_tile_x = (i32) zai_floorf(camera->position.x);
-  camera_tile_z = (i32) zai_floorf(camera->position.z);
+  camera_tile_x = (i32)zai_floorf(camera->position.x + 0.5f);
+  camera_tile_z = (i32)zai_floorf(camera->position.z + 0.5f);
 
   /* Check for new dirty tiles */
   ZAI_PROFILER_BEGIN(tile_update);
