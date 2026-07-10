@@ -2485,7 +2485,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
 
     glBindVertexArray(quad_vao);
-
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
@@ -2498,9 +2497,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
-    glBindVertexArray(0);
-    glUseProgram(0);
   }
   ZAI_PROFILER_END(tile_render);
 }
