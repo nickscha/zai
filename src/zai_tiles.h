@@ -7,7 +7,9 @@
  * # [SECTION] Tiling Logic
  * #############################################################################
  */
+#ifndef ZAI_TILES_PER_SIDE
 #define ZAI_TILES_PER_SIDE 5
+#endif
 #define ZAI_TILES_TOTAL (ZAI_TILES_PER_SIDE * ZAI_TILES_PER_SIDE)
 
 /* SoA tiles setup */
