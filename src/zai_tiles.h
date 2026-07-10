@@ -67,6 +67,7 @@ ZAI_API void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 
     t->origin_x = camera_tile_x - half;
     t->origin_z = camera_tile_z - half;
+    t->dirty_indices_count = 0;
 
     for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
     {
