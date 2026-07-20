@@ -2359,10 +2359,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     zai_tiles_init(&t, camera_tile_x, camera_tile_z);
     ZAI_PROFILER_END(tile_init);
 
-    ZAI_PROFILER_BEGIN(tile_update);
-    zai_tiles_update(&t, camera_tile_x, camera_tile_z);
-    ZAI_PROFILER_END(tile_update);
-
     /* Setup shaders */
     {
       u32 size_code_vertex = 0;
