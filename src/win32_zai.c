@@ -2339,6 +2339,8 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   ZAI_PROFILER_END(render_terrain);
 }
 
+#define ZAI_TILE_SIZE 256.0f
+
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 {
   static u8 tiles_initialized = 0;
@@ -2408,8 +2410,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   (void)camera;
 
   /* Update camera tile based on cmaera world position */
-  camera_tile_x = (i32)zai_floorf(camera->position.x);
-  camera_tile_z = (i32)zai_floorf(camera->position.z);
+  camera_tile_x = (i32)zai_floorf(camera->position.x / ZAI_TILE_SIZE);
+  camera_tile_z = (i32)zai_floorf(camera->position.z / ZAI_TILE_SIZE);
 
   /* Check for new dirty tiles */
   ZAI_PROFILER_BEGIN(tile_update);
@@ -2636,7 +2638,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       camera = zai_camera_init();
       camera.position.y = 1.0f;
 
-      camera_speed = 1.0f;
+      camera_speed = 25.0f;
     }
   }
 
