@@ -2134,7 +2134,6 @@ ZAI_API void zai_render_surface_nets(win32_zai_state *state, zai_camera *camera)
   ZAI_PROFILER_END(render_surface_nets);
 }
 
-/* 65 */
 #define GRID_RES 129
 #define MAX_INDICES ((GRID_RES - 1) * (GRID_RES - 1) * 6)
 
@@ -2349,8 +2348,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
   static shader_tiles tiles_shader = {0};
 
-  static u32 quad_vao;
-  static u32 quad_vbo;
+  static u16 gridIndices[MAX_INDICES];
+  static i32 gridIndexCount = 0;
+  static u32 grid_vao;
+  static u32 grid_ibo;
 
   if (!tiles_initialized)
   {
@@ -2387,45 +2388,17 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
     }
 
-    /* Setup Buffer Objects  */
+    /* Generate Grid */
     {
-      /*
-      f32 quad_vertices[] = {
-          0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-          0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
-      */
 
-      f32 quad_vertices[] = {
-          0.0f,
-          0.0f,
-          1.0f,
-          0.0f,
-          1.0f,
-          -1.0f,
-          0.0f,
-          0.0f,
-          1.0f,
-          -1.0f,
-          0.0f,
-          -1.0f,
-      };
+      gridIndexCount = zai_geometry_grid(65, gridIndices);
 
-      /*
-      f32 quad_vertices[] = {
-          -0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f,
-          -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f};
-      */
+      glGenVertexArrays(1, &grid_vao);
+      glBindVertexArray(grid_vao);
 
-      glGenVertexArrays(1, &quad_vao);
-      glGenBuffers(1, &quad_vbo);
-
-      glBindVertexArray(quad_vao);
-      glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
-      glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
-
-      glEnableVertexAttribArray(0);
-      glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(f32), (void *)0);
-      glBindVertexArray(0);
+      glGenBuffers(1, &grid_ibo);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grid_ibo);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
     }
 
     tiles_initialized = 1;
@@ -2480,7 +2453,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glUseProgram(tiles_shader.header.program);
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
 
-    glBindVertexArray(quad_vao);
+    glBindVertexArray(grid_vao);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
@@ -2489,7 +2462,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
-      glDrawArrays(GL_TRIANGLES, 0, 6);
+
+      glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
