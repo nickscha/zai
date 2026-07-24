@@ -2340,6 +2340,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 }
 
 #define ZAI_TILE_SIZE 256.0f
+#define ZAI_GRID_SIZE 65
 
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 {
@@ -2392,8 +2393,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     /* Generate Grid */
     {
-
-      gridIndexCount = zai_geometry_grid(65, gridIndices);
+      gridIndexCount = zai_geometry_grid(ZAI_GRID_SIZE, gridIndices);
 
       glGenVertexArrays(1, &grid_vao);
       glBindVertexArray(grid_vao);
