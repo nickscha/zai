@@ -2393,7 +2393,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     /* Generate Grid */
     {
-      gridIndexCount = zai_geometry_grid(ZAI_GRID_SIZE, gridIndices);
+      gridIndexCount = zai_geometry_grid_lod(
+          ZAI_GRID_SIZE,
+          ZAI_GEOMETRY_LOD_EDGE_NORTH | ZAI_GEOMETRY_LOD_EDGE_EAST | ZAI_GEOMETRY_LOD_EDGE_SOUTH | ZAI_GEOMETRY_LOD_EDGE_WEST,
+          gridIndices);
 
       glGenVertexArrays(1, &grid_vao);
       glBindVertexArray(grid_vao);
