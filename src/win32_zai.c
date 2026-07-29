@@ -2641,7 +2641,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       camera = zai_camera_init();
       camera.position.y = 1.0f;
 
-      camera_speed = 25.0f;
+      camera_speed = 50.0f;
     }
   }
 
