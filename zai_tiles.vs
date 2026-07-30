@@ -61,7 +61,7 @@ void main()
     float v_x = float(gl_VertexID % int(GRID_RES));
     float v_z = float(gl_VertexID / int(GRID_RES));
 
-    vec2 local_pos = vec2(v_x / (GRID_RES - 1.0), -v_z / (GRID_RES - 1.0)) * TILE_SIZE;    
+    vec2 local_pos = vec2(v_x / (GRID_RES - 1.0), v_z / (GRID_RES - 1.0)) * TILE_SIZE;    
     vec2 world_pos = local_pos + (u_tile_offset.xy * TILE_SIZE);
 
     float height = Terrain(world_pos);
