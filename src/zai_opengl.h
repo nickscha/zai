@@ -60,6 +60,7 @@
 #define GL_R8UI 0x8232
 #define GL_R8_SNORM 0x8F94
 #define GL_R16UI 0x8234
+#define GL_R32F 0x822E
 #define GL_TEXTURE0 0x84C0
 #define GL_TEXTURE1 0x84C1
 #define GL_TEXTURE2 0x84C2
@@ -75,6 +76,8 @@
 #define GL_BACK 0x0405
 #define GL_FRONT_AND_BACK 0x0408
 #define GL_CULL_FACE 0x0B44
+#define GL_FRAMEBUFFER 0x8D40
+#define GL_COLOR_ATTACHMENT0 0x8CE0
 
 /* OpenGL 1.1 functions */
 typedef void (*PFNGLCLEARCOLORPROC)(f32 red, f32 green, f32 blue, f32 alpha);
@@ -252,6 +255,15 @@ static PFNGLVERTEXATTRIBDIVISORPROC glVertexAttribDivisor;
 typedef void (*PFNGLDRAWARRAYSINSTANCED)(i32 mode, i32 first, i32 count, u32 primcount);
 static PFNGLDRAWARRAYSINSTANCED glDrawArraysInstanced;
 
+typedef void (*PFNGLGENFRAMEBUFFERSPROC)(i32 n, u32 *ids);
+static PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
+
+typedef void (*PFNGLBINDFRAMEBUFFERPROC)(u32 target, u32 framebuffer);
+static PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
+
+typedef void (*PFNGLFRAMEBUFFERTEXTURE2DPROC)(u32 target, u32 attachment, u32 textarget, u32 texture, i32 level);
+static PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D;
+
 /* #############################################################################
  * # [SECTION] OpenGL Function Loader
  * #############################################################################
@@ -334,6 +346,9 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glVertexAttribIPointer = (PFNGLVERTEXATTRIBIPOINTERPROC)load("glVertexAttribIPointer");
     glVertexAttribDivisor = (PFNGLVERTEXATTRIBDIVISORPROC)load("glVertexAttribDivisor");
     glDrawArraysInstanced = (PFNGLDRAWARRAYSINSTANCED)load("glDrawArraysInstanced");
+    glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)load("glGenFramebuffers");
+    glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)load("glBindFramebuffer");
+    glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)load("glFramebufferTexture2D");
 
 #pragma GCC diagnostic pop
 

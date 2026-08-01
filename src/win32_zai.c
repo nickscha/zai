@@ -2342,6 +2342,39 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 #define ZAI_TILE_SIZE 256.0f
 #define ZAI_GRID_SIZE 65
 
+ZAI_API u32 zai_create_height_texture(u32 size)
+{
+  u32 tex;
+
+  glGenTextures(1, &tex);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, (i32)size, (i32)size, 0, GL_RED, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  return tex;
+}
+
+ZAI_API u32 zai_create_height_fbo(u32 tex)
+{
+  u32 fbo;
+
+  glGenFramebuffers(1, &fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+
+  return fbo;
+}
+
+ZAI_API void zai_render_height_texutre(u32 fbo, u32 size)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glViewport(0, 0, (i32)size, (i32)size);
+  /* glUseProgram(shader); */
+}
+
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 {
   static u8 tiles_initialized = 0;
@@ -2432,6 +2465,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       u32 tile_idx = t.dirty_indices[last_idx];
 
       (void)tile_idx;
+      (void)zai_create_height_texture;
+      (void)zai_create_height_fbo;
+      (void)zai_render_height_texutre;
 
       t.dirty_indices_count--;
       updates_per_frame--;
