@@ -2497,6 +2497,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glBindVertexArray(grid_vao);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
+  /* TODO(nickscha): Basic Culling (Frustum Culling) */
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
       u8 is_dirty = zai_tile_is_dirty(&t, i);
