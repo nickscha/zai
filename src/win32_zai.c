@@ -946,6 +946,7 @@ typedef struct shader_tiles
   i32 loc_tile_offset;
   i32 loc_view_projection;
   i32 loc_is_dirty;
+  i32 loc_heightmap;
 
 } shader_tiles;
 
@@ -2376,12 +2377,14 @@ ZAI_API u32 zai_create_height_fbo(u32 tex)
   return fbo;
 }
 
-ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, u32 fbo, u32 size)
+ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
 
   glUseProgram(tile_hm_shader->header.program);
+  glUniform3f(tile_hm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -2404,6 +2407,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   static shader_tile_hm tiles_hm_shader = {0};
   static u32 tile_tex[ZAI_TILES_TOTAL];
   static u32 tile_fbo[ZAI_TILES_TOTAL];
+  static u32 tile_hm_vao;
 
   if (!tiles_initialized)
   {
@@ -2430,6 +2434,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
         tiles_shader.loc_tile_offset = glGetUniformLocation(tiles_shader.header.program, "u_tile_offset");
         tiles_shader.loc_view_projection = glGetUniformLocation(tiles_shader.header.program, "u_vp");
         tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
+        tiles_shader.loc_heightmap = glGetUniformLocation(tiles_shader.header.program, "u_heightmap");
       }
       else
       {
@@ -2455,7 +2460,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
       if (opengl_shader_load(&tiles_hm_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
       {
-        tiles_hm_shader.loc_tile_offset = glGetUniformLocation(tiles_hm_shader.header.program, "u_tile_offset");
+        tiles_hm_shader.loc_tile_offset = glGetUniformLocation(tiles_hm_shader.header.program, "u_tile_origin");
       }
       else
       {
@@ -2465,6 +2470,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
       VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
     }
+
+    glGenVertexArrays(1, &tile_hm_vao);
 
     /* Generate Grid */
     {
@@ -2509,7 +2516,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
       tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
 
-      zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE);
+      glBindVertexArray(tile_hm_vao);
+      zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE,
+                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       t.dirty_indices_count--;
       updates_per_frame--;
@@ -2540,6 +2549,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
     /* TODO(nickscha): Frustum Culling */
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(tiles_shader.loc_heightmap, 0);
+
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
       u8 is_dirty = zai_tile_is_dirty(&t, i);
@@ -2547,6 +2559,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
 
+      glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
       glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
     }
 
