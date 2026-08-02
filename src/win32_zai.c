@@ -2513,8 +2513,11 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
 
-      tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
-      tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
+      if (tile_tex[tile_idx] == 0)
+      {
+        tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
+        tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
+      }
 
       glBindVertexArray(tile_hm_vao);
       zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE,
