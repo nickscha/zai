@@ -109,12 +109,12 @@ ZAI_API ZAI_INLINE i32 zai_geometry_grid_lod(i32 grid_resolution, u32 edge_flags
                 u16 i_w_bottom = (u16)(2 * grid_resolution);
 
                 grid_indices[i++] = i3;
-                grid_indices[i++] = i_w_bottom;
                 grid_indices[i++] = i_nw_outer;
+                grid_indices[i++] = i_w_bottom;
 
                 grid_indices[i++] = i3;
-                grid_indices[i++] = i_nw_outer;
                 grid_indices[i++] = i_n_right;
+                grid_indices[i++] = i_nw_outer;
                 continue;
             }
 
@@ -126,12 +126,12 @@ ZAI_API ZAI_INLINE i32 zai_geometry_grid_lod(i32 grid_resolution, u32 edge_flags
                 u16 i_e_bottom = (u16)(2 * grid_resolution + max_idx);
 
                 grid_indices[i++] = i2;
-                grid_indices[i++] = i_n_left;
                 grid_indices[i++] = i_ne_outer;
+                grid_indices[i++] = i_n_left;
 
                 grid_indices[i++] = i2;
-                grid_indices[i++] = i_ne_outer;
                 grid_indices[i++] = i_e_bottom;
+                grid_indices[i++] = i_ne_outer;
                 continue;
             }
 

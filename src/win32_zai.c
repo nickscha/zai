@@ -2545,6 +2545,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       wireframe_enabled = !wireframe_enabled;
     }
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+
     glUseProgram(tiles_shader.header.program);
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
 
@@ -2567,6 +2570,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    glDisable(GL_CULL_FACE);
   }
   ZAI_PROFILER_END(tile_render);
 }
