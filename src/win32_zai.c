@@ -949,6 +949,14 @@ typedef struct shader_tiles
 
 } shader_tiles;
 
+typedef struct shader_tile_hm
+{
+  shader_header header;
+
+  i32 loc_tile_offset;
+
+} shader_tile_hm;
+
 typedef struct shader_main
 {
   shader_header header;
@@ -2368,11 +2376,15 @@ ZAI_API u32 zai_create_height_fbo(u32 tex)
   return fbo;
 }
 
-ZAI_API void zai_render_height_texutre(u32 fbo, u32 size)
+ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, u32 fbo, u32 size)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
-  /* glUseProgram(shader); */
+
+  glUseProgram(tile_hm_shader->header.program);
+
+  glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
@@ -2388,6 +2400,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   static i32 gridIndexCount = 0;
   static u32 grid_vao;
   static u32 grid_ibo;
+
+  static shader_tile_hm tiles_hm_shader = {0};
+  static u32 tile_tex[ZAI_TILES_TOTAL];
+  static u32 tile_fbo[ZAI_TILES_TOTAL];
 
   if (!tiles_initialized)
   {
@@ -2418,6 +2434,32 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       else
       {
         win32_print("Cannot compile tiles shaders!\n");
+      }
+
+      VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+      VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+    }
+
+    /* Setup FBO heightmap Shader  */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_tile_hm.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_tile_hm.fs", &size_code_fragment);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load tile heightmap shader files!\n");
+        return;
+      }
+
+      if (opengl_shader_load(&tiles_hm_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        tiles_hm_shader.loc_tile_offset = glGetUniformLocation(tiles_hm_shader.header.program, "u_tile_offset");
+      }
+      else
+      {
+        win32_print("Cannot compile tile heightmap shaders!\n");
       }
 
       VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
@@ -2464,10 +2506,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
 
-      (void)tile_idx;
-      (void)zai_create_height_texture;
-      (void)zai_create_height_fbo;
-      (void)zai_render_height_texutre;
+      tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
+      tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
+
+      zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE);
 
       t.dirty_indices_count--;
       updates_per_frame--;
@@ -2497,7 +2539,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glBindVertexArray(grid_vao);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
-  /* TODO(nickscha): Basic Culling (Frustum Culling) */
+    /* TODO(nickscha): Frustum Culling */
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
       u8 is_dirty = zai_tile_is_dirty(&t, i);
