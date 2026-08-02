@@ -7,6 +7,7 @@ uniform sampler2D u_heightmap;
 
 out vec3 vColor;
 out float v_is_dirty_pass;
+out vec2 v_uv;
 
 const float GRID_RES = 65.0;
 const float TILE_SIZE = 256.0;
@@ -20,6 +21,8 @@ void main()
 {
     float v_x = float(gl_VertexID % int(GRID_RES));
     float v_z = float(gl_VertexID / int(GRID_RES));
+
+    v_uv = vec2(float(v_x), float(v_z)) / (GRID_RES - 1.0);
 
     vec2 local_pos = (vec2(v_x, v_z) / (GRID_RES - 1.0) - vec2(0.5)) * TILE_SIZE;
     vec2 world_pos = local_pos + (u_tile_offset.xy * TILE_SIZE);

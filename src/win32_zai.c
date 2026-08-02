@@ -947,6 +947,7 @@ typedef struct shader_tiles
   i32 loc_view_projection;
   i32 loc_is_dirty;
   i32 loc_heightmap;
+  i32 loc_normalmap;
 
 } shader_tiles;
 
@@ -957,6 +958,14 @@ typedef struct shader_tile_hm
   i32 loc_tile_offset;
 
 } shader_tile_hm;
+
+typedef struct shader_tile_nm
+{
+  shader_header header;
+
+  i32 loc_tile_offset;
+
+} shader_tile_nm;
 
 typedef struct shader_main
 {
@@ -2358,11 +2367,24 @@ ZAI_API u32 zai_create_height_texture(u32 size)
   glGenTextures(1, &tex);
   glBindTexture(GL_TEXTURE_2D, tex);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, (i32)size, (i32)size, 0, GL_RED, GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  return tex;
+}
+
+ZAI_API u32 zai_create_normal_texture(u32 size)
+{
+  u32 tex;
+  glGenTextures(1, &tex);
+  glBindTexture(GL_TEXTURE_2D, tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, (i32)size, (i32)size, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
   return tex;
 }
 
@@ -2390,6 +2412,19 @@ ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *tile_nm_shader, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+  glViewport(0, 0, (i32)size, (i32)size);
+
+  glUseProgram(tile_nm_shader->header.program);
+  glUniform3f(tile_nm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+
+  glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 {
   static u8 tiles_initialized = 0;
@@ -2405,9 +2440,12 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
   static u32 grid_ibo;
 
   static shader_tile_hm tiles_hm_shader = {0};
+  static shader_tile_nm tiles_nm_shader = {0};
   static u32 tile_tex[ZAI_TILES_TOTAL];
   static u32 tile_fbo[ZAI_TILES_TOTAL];
-  static u32 tile_hm_vao;
+  static u32 tile_normal_tex[ZAI_TILES_TOTAL];
+  static u32 tile_normal_fbo[ZAI_TILES_TOTAL];
+  static u32 tile_vao;
 
   if (!tiles_initialized)
   {
@@ -2435,6 +2473,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
         tiles_shader.loc_view_projection = glGetUniformLocation(tiles_shader.header.program, "u_vp");
         tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
         tiles_shader.loc_heightmap = glGetUniformLocation(tiles_shader.header.program, "u_heightmap");
+        tiles_shader.loc_normalmap = glGetUniformLocation(tiles_shader.header.program, "u_normalmap");
       }
       else
       {
@@ -2471,7 +2510,33 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
     }
 
-    glGenVertexArrays(1, &tile_hm_vao);
+    /* Setup FBO normal map Shader  */
+    {
+      u32 size_code_vertex = 0;
+      u32 size_code_fragment = 0;
+      u8 *shader_code_vertex = win32_file_read("zai_tile_nm.vs", &size_code_vertex);
+      u8 *shader_code_fragment = win32_file_read("zai_tile_nm.fs", &size_code_fragment);
+
+      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+      {
+        win32_print("Cannot load tile normal map shader files!\n");
+        return;
+      }
+
+      if (opengl_shader_load(&tiles_nm_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+      {
+        tiles_nm_shader.loc_tile_offset = glGetUniformLocation(tiles_nm_shader.header.program, "u_tile_origin");
+      }
+      else
+      {
+        win32_print("Cannot compile tile normal map shaders!\n");
+      }
+
+      VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+      VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+    }
+
+    glGenVertexArrays(1, &tile_vao);
 
     /* Generate Grid */
     {
@@ -2517,10 +2582,16 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       {
         tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
         tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
+
+        tile_normal_tex[tile_idx] = zai_create_normal_texture(1024);
+        tile_normal_fbo[tile_idx] = zai_create_height_fbo(tile_normal_tex[tile_idx]);
       }
 
-      glBindVertexArray(tile_hm_vao);
+      glBindVertexArray(tile_vao);
       zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE,
+                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
+
+      zai_render_normal_texutre(state, &tiles_nm_shader, tile_normal_fbo[tile_idx], 1024,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       t.dirty_indices_count--;
@@ -2555,8 +2626,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
     /* TODO(nickscha): Frustum Culling */
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(tiles_shader.loc_heightmap, 0);
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
@@ -2565,7 +2634,14 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
 
+      glActiveTexture(GL_TEXTURE0);
+      glUniform1i(tiles_shader.loc_heightmap, 0);
       glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
+
+      glActiveTexture(GL_TEXTURE1);
+      glUniform1i(tiles_shader.loc_normalmap, 1);
+      glBindTexture(GL_TEXTURE_2D, tile_normal_tex[i]);
+
       glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
     }
 
