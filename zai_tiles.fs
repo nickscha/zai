@@ -19,7 +19,6 @@ void main()
         FragColor = vec4(vColor, 1.0);
     }
 
-    vec3 normal = texture(u_normalmap, v_uv).rgb * 2.0 - 1.0;
-    normal = normalize(normal);
-    FragColor = vec4(normal, 1.0);
+    vec3 normal = normalize(texture(u_normalmap, v_uv).rgb * 2.0 - 1.0);
+    FragColor = vec4(normal * 0.5 + 0.5, 1.0); /* map normal to 0 - 1 range */
 }
