@@ -4,7 +4,7 @@ in vec2 v_uv;
 
 layout(location = 0) out float outHeight;
 
-uniform vec3  u_tile_origin;
+uniform vec3 u_tile_origin;
 
 const float TILE_SIZE = 256.0;
 const float GRID_RES = 65.0;
