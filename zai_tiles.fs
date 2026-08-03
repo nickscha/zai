@@ -8,6 +8,11 @@ out vec4 FragColor;
 
 uniform sampler2D u_normalmap;
 
+uniform vec3 iResolution;
+uniform vec3 sunDir;
+uniform vec3 iCamera;
+uniform vec3 iViewDir; // camera forward normalized vector
+
 void main()
 {
     if (v_is_dirty_pass > 0.5)

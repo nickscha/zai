@@ -948,6 +948,10 @@ typedef struct shader_tiles
   i32 loc_is_dirty;
   i32 loc_heightmap;
   i32 loc_normalmap;
+  i32 loc_iResolution;
+  i32 loc_camera;
+  i32 loc_sun_dir;
+  i32 loc_camera_view_dir;
 
 } shader_tiles;
 
@@ -2425,7 +2429,7 @@ ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
+ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir)
 {
   static u8 tiles_initialized = 0;
   static zai_tiles t = {0};
@@ -2474,6 +2478,11 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
         tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
         tiles_shader.loc_heightmap = glGetUniformLocation(tiles_shader.header.program, "u_heightmap");
         tiles_shader.loc_normalmap = glGetUniformLocation(tiles_shader.header.program, "u_normalmap");
+
+        tiles_shader.loc_iResolution = glGetUniformLocation(tiles_shader.header.program, "iResolution");
+        tiles_shader.loc_sun_dir = glGetUniformLocation(tiles_shader.header.program, "sunDir");
+        tiles_shader.loc_camera = glGetUniformLocation(tiles_shader.header.program, "iCamera");
+        tiles_shader.loc_camera_view_dir = glGetUniformLocation(tiles_shader.header.program, "iViewDir");
       }
       else
       {
@@ -2621,6 +2630,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     glUseProgram(tiles_shader.header.program);
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
+    glUniform3f(tiles_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
+    glUniform3f(tiles_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
+    glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
+    glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
 
     glBindVertexArray(grid_vao);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
@@ -2930,7 +2943,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   else
   {
     zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
-    zai_render_tiles(state, &camera);
+    zai_render_tiles(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z));
   }
 
   /* Render text */
