@@ -101,11 +101,12 @@ void main()
 
     float skyDome = smoothstep(-0.2, 0.2, normal.y);
     float bounce = max(dot(normal, normalize(vec3(-sDir.x, 0.0, -sDir.z))), 0.0);
+    float cavityAO = smoothstep(-0.2, 0.8, normal.y);
 
     vec3 light = vec3(0.0);
     light += sunDif * sunLightCol;
     light += moonDif * moonLightCol;
-    light += skyDome * zenith * 0.6;
+    light += skyDome * zenith * 0.6 * cavityAO;
     light += bounce * zenith * 0.2; 
 
     vec3 col = mate * light;
