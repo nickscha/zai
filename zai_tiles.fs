@@ -3,6 +3,7 @@
 in vec3 vColor;
 in float v_is_dirty_pass;
 in vec2 v_uv;
+in vec3 v_worldPos;
 
 out vec4 FragColor;
 

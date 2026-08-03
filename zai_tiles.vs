@@ -8,6 +8,7 @@ uniform sampler2D u_heightmap;
 out vec3 vColor;
 out float v_is_dirty_pass;
 out vec2 v_uv;
+out vec3 v_worldPos;
 
 const float GRID_RES = 65.0;
 const float TILE_SIZE = 256.0;
@@ -39,4 +40,5 @@ void main()
 
     vColor = vec3(r, g, b);
     v_is_dirty_pass = float(u_is_dirty);
+    v_worldPos = vec3(world_pos.x, height, world_pos.y);
 }
