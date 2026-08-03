@@ -114,10 +114,12 @@ void main()
     float dist = length(v_worldPos - iCamera);
     
     vec3 fogCol = getFogColor(rayDir);
-    float fogDensity = 0.00015;
-    float fogFactor = exp(-dist * fogDensity);
-    
-    col = mix(fogCol, col, fogFactor);
+    float distFog = 1.0 - exp(-dist * 0.00015);
+    float heightFog = exp(-v_worldPos.y * 0.015);
+    float totalFog = clamp(distFog * heightFog, 0.0, 1.0);
+
+    col = mix(col, fogCol, totalFog);
+
     col = pow(col, vec3(0.4545));
 
     if (v_is_dirty_pass > 0.5)
