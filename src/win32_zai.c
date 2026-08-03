@@ -2629,20 +2629,23 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera)
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
-      u8 is_dirty = zai_tile_is_dirty(&t, i);
+      if (t.tile_x[i] == camera_tile_x && t.tile_z[i] == camera_tile_z)
+      {
+        u8 is_dirty = zai_tile_is_dirty(&t, i);
 
-      glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
-      glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
+        glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
+        glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
 
-      glActiveTexture(GL_TEXTURE0);
-      glUniform1i(tiles_shader.loc_heightmap, 0);
-      glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(tiles_shader.loc_heightmap, 0);
+        glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
 
-      glActiveTexture(GL_TEXTURE1);
-      glUniform1i(tiles_shader.loc_normalmap, 1);
-      glBindTexture(GL_TEXTURE_2D, tile_normal_tex[i]);
+        glActiveTexture(GL_TEXTURE1);
+        glUniform1i(tiles_shader.loc_normalmap, 1);
+        glBindTexture(GL_TEXTURE_2D, tile_normal_tex[i]);
 
-      glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
+        glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
+      }
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
