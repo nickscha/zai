@@ -10,6 +10,8 @@ uniform vec3 cameraPos;
 uniform mat3 cameraBasis; /* right, up, forward */
 uniform vec3 sunDir;
 
+/* --- NOISE HELPERS --- */
+
 float hash(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
@@ -18,9 +20,84 @@ float hash3D(vec3 p) {
     return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
 }
 
+// 2D Value noise for smooth cloud shapes
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    
+    // Smooth interpolation curve (smoothstep)
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), 
+        u.y
+    );
+}
+
+// 5-Octave fBm (Fractional Brownian Motion)
+float cloudFbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80); // Domain rotation to hide grid alignment
+    
+    for (int i = 0; i < 5; i++) {
+        v += a * valueNoise(p);
+        p = rot * p * 2.02;
+        a *= 0.5;
+    }
+    return v;
+}
+
+vec4 getClouds(vec3 ro, vec3 rd, vec3 skyBg) {
+    if (rd.y < 0.001) return vec4(0.0);
+
+    float dayVisibility = smoothstep(-0.1, 0.2, sunDir.y);
+    if (dayVisibility <= 0.001) return vec4(0.0);
+
+    float cloudHeight = 1200.0;
+    float t = (cloudHeight - ro.y) / rd.y;
+    
+    if (t < 0.0) return vec4(0.0);
+
+    vec3 cloudPos = ro + rd * t;
+
+    vec2 wind = vec2(iTime * 0.02, iTime * 0.01);
+    vec2 uv = cloudPos.xz * 0.0003 + wind;
+
+    float density = cloudFbm(uv);
+    density = smoothstep(0.38, 0.75, density);
+
+    if (density <= 0.001) return vec4(0.0);
+
+    vec2 sunOffset = sunDir.xz * 0.08;
+    float densityTowardsSun = cloudFbm(uv + sunOffset);
+    float lightAbsorption = clamp((density - densityTowardsSun) * 3.5, 0.0, 1.0);
+    float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
+    float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
+    vec3 sunColor = mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.45, 0.20), sunsetAmount);
+    vec3 ambientDark = mix(vec3(0.02, 0.03, 0.05), vec3(0.20, 0.25, 0.35), dayAmount);
+    vec3 cloudLit   = sunColor * mix(0.5, 1.2, dayAmount);
+    vec3 cloudColor = mix(cloudLit, ambientDark, lightAbsorption);
+    float sunDot = max(dot(rd, sunDir), 0.0);
+    float silverLining = pow(sunDot, 8.0) * (1.0 - lightAbsorption);
+    cloudColor += sunColor * silverLining * 0.8;
+
+    float horizonFade = smoothstep(0.02, 0.25, rd.y);
+    float distFade = exp(-t * 0.00008);
+
+    float finalAlpha = density * horizonFade * distFade * dayVisibility;
+
+    return vec4(cloudColor, finalAlpha);
+}
+
 vec3 getSky(vec3 rd)
 {
-    float h = max(rd.y, 0.0);
+    float skyDomeRadius = 5000.0; 
+    vec3 skyPos = cameraPos + rd * skyDomeRadius;
+    vec3 skyDir = normalize(skyPos);
+
+    float h = max(skyDir.y, 0.0);
 
     float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
     float nightAmount = 1.0 - dayAmount;
@@ -42,16 +119,16 @@ vec3 getSky(vec3 rd)
 
     vec3 sky = mix(horizon, zenith, pow(h, 0.35));
     
+    /* Sun */
     float sunAmount = max(dot(rd, sunDir), 0.0);
     float sunGlow   = pow(sunAmount, 32.0);
     float sunDisk   = pow(sunAmount, 2000.0);
 
-    vec3 sunColor =
-        mix(
-            vec3(1.0, 0.95, 0.85),
-            vec3(1.0, 0.45, 0.20),
-            sunsetAmount
-        );
+    vec3 sunColor = mix(
+        vec3(1.0, 0.95, 0.85),
+        vec3(1.0, 0.45, 0.20),
+        sunsetAmount
+    );
 
     sky += sunColor * sunGlow * 0.6;
     sky += sunColor * sunDisk * 8.0;
@@ -60,19 +137,17 @@ vec3 getSky(vec3 rd)
     vec3 moonDir = -sunDir;
 
     float moonAmount = max(dot(rd, moonDir), 0.0);
-
-    float moonDisk = pow(moonAmount, 1500.0);
-    float moonGlow = pow(moonAmount, 20.0);
-    vec3 moonColor = vec3(0.8, 0.85, 1.0);
+    float moonDisk   = pow(moonAmount, 1500.0);
+    float moonGlow   = pow(moonAmount, 20.0);
+    vec3 moonColor   = vec3(0.8, 0.85, 1.0);
 
     sky += moonColor * moonGlow * 0.08 * nightAmount;
     sky += moonColor * moonDisk * 2.5 * nightAmount;
 
-    /* Athmospheric Scattering */
+    /* Atmospheric Scattering & Horizon Glow */
     float mie = pow(sunAmount, 8.0);
     sky += sunColor * mie * 0.25;
 
-    /* Horizon glow */
     float horizonGlow = pow(1.0 - h, 8.0);
     sky += sunsetHorizon * horizonGlow * sunsetAmount * 0.5;
 
@@ -90,7 +165,6 @@ vec3 getSky(vec3 rd)
         vec3 starY = cross(starZ, starX);
 
         mat3 celestialRotation = mat3(starX, starY, starZ);
-        
         vec3 rotatedRd = rd * celestialRotation;
 
         float gridScale = 500.0; 
@@ -105,13 +179,12 @@ vec3 getSky(vec3 rd)
         }
 
         if (starIntensity > 0.0) {
-
             vec3 cellCenter = normalize((starGrid + 0.5) / gridScale);
             float angleDist = 1.0 - dot(rotatedRd, cellCenter);
 
             float starSize = 0.000002; 
             starIntensity *= smoothstep(starSize, 0.0, angleDist);
-            starIntensity *= smoothstep(0.0, 0.1, rd.y); 
+            starIntensity *= smoothstep(0.0, 0.1, skyDir.y); 
 
             float skyLuminance = dot(sky, vec3(0.2126, 0.7152, 0.0722));
             starIntensity *= max(1.0 - skyLuminance * 4.0, 0.0); 
@@ -119,6 +192,10 @@ vec3 getSky(vec3 rd)
             sky += vec3(starIntensity * 0.9, starIntensity * 0.95, starIntensity * 1.0);
         }
     }
+
+    /* Clouds */
+    vec4 clouds = getClouds(cameraPos, rd, sky);
+    sky = mix(sky, clouds.rgb, clouds.a);
         
     return sky;
 }
