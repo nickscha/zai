@@ -20,12 +20,10 @@ float hash3D(vec3 p) {
     return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
 }
 
-// 2D Value noise for smooth cloud shapes
 float valueNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    
-    // Smooth interpolation curve (smoothstep)
+
     vec2 u = f * f * (3.0 - 2.0 * f);
 
     return mix(
@@ -35,11 +33,10 @@ float valueNoise(vec2 p) {
     );
 }
 
-// 5-Octave fBm (Fractional Brownian Motion)
 float cloudFbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
-    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80); // Domain rotation to hide grid alignment
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
     
     for (int i = 0; i < 5; i++) {
         v += a * valueNoise(p);
