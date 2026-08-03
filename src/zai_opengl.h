@@ -54,6 +54,7 @@
 #define GL_RGBA 0x1908
 #define GL_RGB8 0x8051
 #define GL_RGBA8 0x8058
+#define GL_RGB16F 0x881B
 #define GL_RED 0x1903
 #define GL_RED_INTEGER 0x8D94
 #define GL_R8 0x8229
