@@ -40,7 +40,7 @@ float Terrain(vec2 p)
 
     w = 66.0 * w * w;
 
-    for(int i = 0; i < 7; i++)
+    for(int i = 0; i < 5; i++)
     {
         f += w * Noise(pos);
         w *= -0.4;
@@ -49,6 +49,13 @@ float Terrain(vec2 p)
 
     float ff = Noise(pos * .002);
     f += pow(abs(ff), 5.0) * 275.0 - 5.0;
+
+	for (int i = 0; i < 6; i++)
+	{
+		f += w * Noise(pos);
+		w =  - w * 0.4;
+		pos = rotate2D * pos;
+	}
 
     return f;
 }
