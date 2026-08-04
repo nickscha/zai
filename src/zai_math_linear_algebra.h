@@ -105,4 +105,102 @@ ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_look_at(zai_vec3 eye, zai_vec3 target, 
     return result;
 }
 
+typedef struct zai_frustum
+{
+    zai_vec4 planes[6]; /* [0]=near, [1]=far, [2]=left, [3]=right, [4]=top, [5]=bottom */
+} zai_frustum;
+
+ZAI_API ZAI_INLINE void zai_frustum_extract_planes(f32 *mvp, zai_frustum *frustum)
+{
+    u32 i;
+
+    /* Right plane */
+    frustum->planes[2].x = mvp[3] - mvp[0];
+    frustum->planes[2].y = mvp[7] - mvp[4];
+    frustum->planes[2].z = mvp[11] - mvp[8];
+    frustum->planes[2].w = mvp[15] - mvp[12];
+
+    /* Left plane */
+    frustum->planes[3].x = mvp[3] + mvp[0];
+    frustum->planes[3].y = mvp[7] + mvp[4];
+    frustum->planes[3].z = mvp[11] + mvp[8];
+    frustum->planes[3].w = mvp[15] + mvp[12];
+
+    /* Top plane */
+    frustum->planes[4].x = mvp[3] - mvp[1];
+    frustum->planes[4].y = mvp[7] - mvp[5];
+    frustum->planes[4].z = mvp[11] - mvp[9];
+    frustum->planes[4].w = mvp[15] - mvp[13];
+
+    /* Bottom plane */
+    frustum->planes[5].x = mvp[3] + mvp[1];
+    frustum->planes[5].y = mvp[7] + mvp[5];
+    frustum->planes[5].z = mvp[11] + mvp[9];
+    frustum->planes[5].w = mvp[15] + mvp[13];
+
+    /* Near plane */
+    frustum->planes[0].x = mvp[3] + mvp[2];
+    frustum->planes[0].y = mvp[7] + mvp[6];
+    frustum->planes[0].z = mvp[11] + mvp[10];
+    frustum->planes[0].w = mvp[15] + mvp[14];
+
+    /* Far plane */
+    frustum->planes[1].x = mvp[3] - mvp[2];
+    frustum->planes[1].y = mvp[7] - mvp[6];
+    frustum->planes[1].z = mvp[11] - mvp[10];
+    frustum->planes[1].w = mvp[15] - mvp[14];
+
+    for (i = 0; i < 6; ++i)
+    {
+        f32 len = zai_sqrtf(frustum->planes[i].x * frustum->planes[i].x +
+                            frustum->planes[i].y * frustum->planes[i].y +
+                            frustum->planes[i].z * frustum->planes[i].z);
+
+        frustum->planes[i].x /= len;
+        frustum->planes[i].y /= len;
+        frustum->planes[i].z /= len;
+        frustum->planes[i].w /= len;
+    }
+}
+
+ZAI_API ZAI_INLINE u8 zai_frustum_is_sphere_visible(zai_frustum *frustum, f32 cx, f32 cy, f32 cz, f32 radius)
+{
+    u32 i;
+
+    for (i = 0; i < 6; ++i)
+    {
+        f32 dist = frustum->planes[i].x * cx +
+                   frustum->planes[i].y * cy +
+                   frustum->planes[i].z * cz +
+                   frustum->planes[i].w;
+
+        if (dist < -radius)
+        {
+            return 0; /* Outside */
+        }
+    }
+
+    return 1;
+}
+
+ZAI_API ZAI_INLINE u8 zai_frustum_is_aabb_visible(zai_frustum *frustum, f32 minx, f32 miny, f32 minz, f32 maxx, f32 maxy, f32 maxz)
+{
+    u32 i;
+
+    for (i = 0; i < 6; ++i)
+    {
+        f32 p = frustum->planes[i].x * (frustum->planes[i].x > 0 ? maxx : minx) +
+                frustum->planes[i].y * (frustum->planes[i].y > 0 ? maxy : miny) +
+                frustum->planes[i].z * (frustum->planes[i].z > 0 ? maxz : minz) +
+                frustum->planes[i].w;
+
+        if (p < 0)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 #endif /* ZAI_MATH_LINEAR_ALGEBRA_H */
