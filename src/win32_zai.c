@@ -2431,7 +2431,7 @@ ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *t
 
 ZAI_API u8 zai_tile_is_visible(zai_frustum *f, f32 tileX, f32 tileZ, f32 tileSize)
 {
-  f32 radius = tileSize * 0.70710678f; /* sqrt(2) */
+  f32 radius = tileSize * 0.70710678f; /* sqrt(2) / 2 */
 
   f32 cx = tileX * tileSize;
   f32 cy = 0.0f;
