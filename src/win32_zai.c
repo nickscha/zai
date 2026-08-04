@@ -2429,6 +2429,35 @@ ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+ZAI_API u8 zai_tile_is_visible(zai_frustum *f, f32 tileX, f32 tileZ, f32 tileSize)
+{
+  f32 radius = tileSize * 0.70710678f; /* sqrt(2) */
+
+  f32 cx = tileX * tileSize;
+  f32 cy = 0.0f;
+  f32 cz = tileZ * tileSize;
+
+  i32 i;
+
+  for (i = 0; i < 6; ++i)
+  {
+    zai_vec4 *p = &f->planes[i];
+
+    f32 dist =
+        p->x * cx +
+        p->y * cy +
+        p->z * cz +
+        p->w;
+
+    if (dist < -radius)
+    {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir)
 {
   static u8 tiles_initialized = 0;
@@ -2619,6 +2648,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     zai_mat4x4 projection = zai_mat4x4_perspective(ZAI_DEG_TO_RAD(camera->fov), (f32)state->platform_state.window.width / (f32)state->platform_state.window.height, 0.1f, 64000.0f);
     zai_mat4x4 view = zai_mat4x4_look_at(camera->position, zai_vec3_add(camera->position, camera->forward), camera->up);
     zai_mat4x4 mvp = zai_mat4x4_mul(projection, view);
+    zai_frustum frustum = zai_frustum_extract(mvp);
 
     if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_TAB] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_TAB])
     {
@@ -2634,29 +2664,26 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniform3f(tiles_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
+    glUniform1i(tiles_shader.loc_heightmap, 0);
+    glUniform1i(tiles_shader.loc_normalmap, 1);
 
     glBindVertexArray(grid_vao);
     glPolygonMode(GL_FRONT_AND_BACK, wireframe_enabled ? GL_LINE : GL_FILL);
 
-    /* TODO(nickscha): Frustum Culling */
-
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
-      /*
-      if (t.tile_x[i] == camera_tile_x && t.tile_z[i] == camera_tile_z)
+      if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_SIZE))
       {
-        */
-      u8 is_dirty = zai_tile_is_dirty(&t, i);
+        continue;
+      }
 
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
-      glUniform1i(tiles_shader.loc_is_dirty, (i32)is_dirty);
+      glUniform1i(tiles_shader.loc_is_dirty, (i32)zai_tile_is_dirty(&t, i));
 
       glActiveTexture(GL_TEXTURE0);
-      glUniform1i(tiles_shader.loc_heightmap, 0);
       glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
 
       glActiveTexture(GL_TEXTURE1);
-      glUniform1i(tiles_shader.loc_normalmap, 1);
       glBindTexture(GL_TEXTURE_2D, tile_normal_tex[i]);
 
       glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);

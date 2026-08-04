@@ -107,104 +107,69 @@ ZAI_API ZAI_INLINE zai_mat4x4 zai_mat4x4_look_at(zai_vec3 eye, zai_vec3 target, 
 
 typedef struct zai_frustum
 {
-    zai_vec4 planes[6]; /* [0]=near, [1]=far, [2]=left, [3]=right, [4]=top, [5]=bottom */
+    zai_vec4 planes[6];
 } zai_frustum;
 
-ZAI_API ZAI_INLINE zai_frustum zai_frustum_extract_planes(f32 *mvp)
+enum
 {
-    zai_frustum frustum = {0};
+    ZAI_FRUSTUM_LEFT = 0,
+    ZAI_FRUSTUM_RIGHT,
+    ZAI_FRUSTUM_BOTTOM,
+    ZAI_FRUSTUM_TOP,
+    ZAI_FRUSTUM_NEAR,
+    ZAI_FRUSTUM_FAR
+};
+
+ZAI_API zai_frustum zai_frustum_extract(zai_mat4x4 m)
+{
+    zai_frustum f = {0};
 
     u32 i;
 
-    /* Right plane */
-    frustum.planes[2].x = mvp[3] - mvp[0];
-    frustum.planes[2].y = mvp[7] - mvp[4];
-    frustum.planes[2].z = mvp[11] - mvp[8];
-    frustum.planes[2].w = mvp[15] - mvp[12];
-
-    /* Left plane */
-    frustum.planes[3].x = mvp[3] + mvp[0];
-    frustum.planes[3].y = mvp[7] + mvp[4];
-    frustum.planes[3].z = mvp[11] + mvp[8];
-    frustum.planes[3].w = mvp[15] + mvp[12];
-
-    /* Top plane */
-    frustum.planes[4].x = mvp[3] - mvp[1];
-    frustum.planes[4].y = mvp[7] - mvp[5];
-    frustum.planes[4].z = mvp[11] - mvp[9];
-    frustum.planes[4].w = mvp[15] - mvp[13];
-
-    /* Bottom plane */
-    frustum.planes[5].x = mvp[3] + mvp[1];
-    frustum.planes[5].y = mvp[7] + mvp[5];
-    frustum.planes[5].z = mvp[11] + mvp[9];
-    frustum.planes[5].w = mvp[15] + mvp[13];
-
-    /* Near plane */
-    frustum.planes[0].x = mvp[3] + mvp[2];
-    frustum.planes[0].y = mvp[7] + mvp[6];
-    frustum.planes[0].z = mvp[11] + mvp[10];
-    frustum.planes[0].w = mvp[15] + mvp[14];
-
-    /* Far plane */
-    frustum.planes[1].x = mvp[3] - mvp[2];
-    frustum.planes[1].y = mvp[7] - mvp[6];
-    frustum.planes[1].z = mvp[11] - mvp[10];
-    frustum.planes[1].w = mvp[15] - mvp[14];
+    f.planes[ZAI_FRUSTUM_LEFT].x = m.e[3] + m.e[0];
+    f.planes[ZAI_FRUSTUM_LEFT].y = m.e[7] + m.e[4];
+    f.planes[ZAI_FRUSTUM_LEFT].z = m.e[11] + m.e[8];
+    f.planes[ZAI_FRUSTUM_LEFT].w = m.e[15] + m.e[12];
+    f.planes[ZAI_FRUSTUM_RIGHT].x = m.e[3] - m.e[0];
+    f.planes[ZAI_FRUSTUM_RIGHT].y = m.e[7] - m.e[4];
+    f.planes[ZAI_FRUSTUM_RIGHT].z = m.e[11] - m.e[8];
+    f.planes[ZAI_FRUSTUM_RIGHT].w = m.e[15] - m.e[12];
+    f.planes[ZAI_FRUSTUM_BOTTOM].x = m.e[3] + m.e[1];
+    f.planes[ZAI_FRUSTUM_BOTTOM].y = m.e[7] + m.e[5];
+    f.planes[ZAI_FRUSTUM_BOTTOM].z = m.e[11] + m.e[9];
+    f.planes[ZAI_FRUSTUM_BOTTOM].w = m.e[15] + m.e[13];
+    f.planes[ZAI_FRUSTUM_TOP].x = m.e[3] - m.e[1];
+    f.planes[ZAI_FRUSTUM_TOP].y = m.e[7] - m.e[5];
+    f.planes[ZAI_FRUSTUM_TOP].z = m.e[11] - m.e[9];
+    f.planes[ZAI_FRUSTUM_TOP].w = m.e[15] - m.e[13];
+    f.planes[ZAI_FRUSTUM_NEAR].x = m.e[3] + m.e[2];
+    f.planes[ZAI_FRUSTUM_NEAR].y = m.e[7] + m.e[6];
+    f.planes[ZAI_FRUSTUM_NEAR].z = m.e[11] + m.e[10];
+    f.planes[ZAI_FRUSTUM_NEAR].w = m.e[15] + m.e[14];
+    f.planes[ZAI_FRUSTUM_FAR].x = m.e[3] - m.e[2];
+    f.planes[ZAI_FRUSTUM_FAR].y = m.e[7] - m.e[6];
+    f.planes[ZAI_FRUSTUM_FAR].z = m.e[11] - m.e[10];
+    f.planes[ZAI_FRUSTUM_FAR].w = m.e[15] - m.e[14];
 
     for (i = 0; i < 6; ++i)
     {
-        f32 len = zai_sqrtf(frustum.planes[i].x * frustum.planes[i].x +
-                            frustum.planes[i].y * frustum.planes[i].y +
-                            frustum.planes[i].z * frustum.planes[i].z);
+        zai_vec4 *p = &f.planes[i];
 
-        frustum.planes[i].x /= len;
-        frustum.planes[i].y /= len;
-        frustum.planes[i].z /= len;
-        frustum.planes[i].w /= len;
-    }
+        f32 len = zai_sqrtf(
+            p->x * p->x +
+            p->y * p->y +
+            p->z * p->z);
 
-    return frustum;
-}
-
-ZAI_API ZAI_INLINE u8 zai_frustum_is_sphere_visible(zai_frustum *frustum, f32 cx, f32 cy, f32 cz, f32 radius)
-{
-    u32 i;
-
-    for (i = 0; i < 6; ++i)
-    {
-        f32 dist = frustum->planes[i].x * cx +
-                   frustum->planes[i].y * cy +
-                   frustum->planes[i].z * cz +
-                   frustum->planes[i].w;
-
-        if (dist < -radius)
+        if (len > 0.0f)
         {
-            return 0; /* Outside */
+            p->x /= len;
+            p->y /= len;
+            p->z /= len;
+            p->w /= len;
         }
     }
 
-    return 1;
-}
-
-ZAI_API ZAI_INLINE u8 zai_frustum_is_aabb_visible(zai_frustum *frustum, f32 minx, f32 miny, f32 minz, f32 maxx, f32 maxy, f32 maxz)
-{
-    u32 i;
-
-    for (i = 0; i < 6; ++i)
-    {
-        f32 p = frustum->planes[i].x * (frustum->planes[i].x > 0 ? maxx : minx) +
-                frustum->planes[i].y * (frustum->planes[i].y > 0 ? maxy : miny) +
-                frustum->planes[i].z * (frustum->planes[i].z > 0 ? maxz : minz) +
-                frustum->planes[i].w;
-
-        if (p < 0)
-        {
-            return 0;
-        }
-    }
-
-    return 1;
+    return f;
 }
 
 #endif /* ZAI_MATH_LINEAR_ALGEBRA_H */
