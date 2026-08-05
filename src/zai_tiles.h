@@ -110,6 +110,7 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
     i32 new_origin_x = camera_tile_x - half;
     i32 new_origin_z = camera_tile_z - half;
     i32 x, z;
+    u32 i;
 
     /* If camera is to far away reinitialize everyting */
     if (zai_absi(new_origin_x - t->origin_x) >= ZAI_TILES_PER_SIDE ||
@@ -130,7 +131,6 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
 
             t->tile_x[i] = target_x;
             t->tile_z[i] = z;
-            t->tile_lod[i] = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
 
@@ -151,7 +151,6 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
 
             t->tile_x[i] = target_x;
             t->tile_z[i] = z;
-            t->tile_lod[i] = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
     }
@@ -167,7 +166,6 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
 
             t->tile_x[i] = x;
             t->tile_z[i] = target_z;
-            t->tile_lod[i] = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
 
@@ -188,8 +186,24 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
 
             t->tile_x[i] = x;
             t->tile_z[i] = target_z;
-            t->tile_lod[i] = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+        }
+    }
+
+    /* LOD Calculation */
+    for (i = 0; i < ZAI_TILES_TOTAL; ++i)
+    {
+        i32 current_lod = t->tile_lod[i];
+        i32 new_lod = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
+
+        if (current_lod != new_lod)
+        {
+            t->tile_lod[i] = new_lod;
+
+            if (!zai_tile_is_dirty(t, i))
+            {
+                t->dirty_indices[t->dirty_indices_count++] = (u16)i;
+            }
         }
     }
 }

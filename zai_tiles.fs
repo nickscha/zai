@@ -6,12 +6,11 @@ in vec3 v_worldPos;
 
 out vec4 FragColor;
 
-uniform sampler2D u_normalmap;
-
 uniform vec3 iResolution;
 uniform vec3 sunDir;
 uniform vec3 iCamera;
 uniform vec3 iViewDir;
+uniform sampler2D u_normalmap;
 
 vec3 getFogColor(vec3 rd)
 {
