@@ -110,15 +110,17 @@ typedef struct zai_frustum
     zai_vec4 planes[6];
 } zai_frustum;
 
-enum
+typedef enum zai_frustum_plane
 {
     ZAI_FRUSTUM_LEFT = 0,
     ZAI_FRUSTUM_RIGHT,
     ZAI_FRUSTUM_BOTTOM,
     ZAI_FRUSTUM_TOP,
     ZAI_FRUSTUM_NEAR,
-    ZAI_FRUSTUM_FAR
-};
+    ZAI_FRUSTUM_FAR,
+    ZAI_FRUSTUM_COUNT
+
+} zai_frustum_plane;
 
 ZAI_API zai_frustum zai_frustum_extract(zai_mat4x4 m)
 {

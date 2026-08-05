@@ -960,6 +960,8 @@ typedef struct shader_tile_hm
   shader_header header;
 
   i32 loc_tile_offset;
+  i32 loc_tile_size;
+  i32 loc_texture_size;
 
 } shader_tile_hm;
 
@@ -968,6 +970,8 @@ typedef struct shader_tile_nm
   shader_header header;
 
   i32 loc_tile_offset;
+  i32 loc_tile_size;
+  i32 loc_texture_size;
 
 } shader_tile_nm;
 
@@ -2403,26 +2407,30 @@ ZAI_API u32 zai_create_height_fbo(u32 tex)
   return fbo;
 }
 
-ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
 
   glUseProgram(tile_hm_shader->header.program);
   glUniform3f(tile_hm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
+  glUniform1f(tile_hm_shader->loc_tile_size, (f32)tile_size);
+  glUniform1f(tile_hm_shader->loc_texture_size, (f32)size);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *tile_nm_shader, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *tile_nm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
 
   glUseProgram(tile_nm_shader->header.program);
   glUniform3f(tile_nm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
+  glUniform1f(tile_nm_shader->loc_tile_size, (f32)tile_size);
+  glUniform1f(tile_nm_shader->loc_texture_size, (f32)size);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
@@ -2542,6 +2550,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       if (opengl_shader_load(&tiles_hm_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
       {
         tiles_hm_shader.loc_tile_offset = glGetUniformLocation(tiles_hm_shader.header.program, "u_tile_origin");
+        tiles_hm_shader.loc_tile_size = glGetUniformLocation(tiles_hm_shader.header.program, "u_tile_size");
+        tiles_hm_shader.loc_texture_size = glGetUniformLocation(tiles_hm_shader.header.program, "u_texture_size");
       }
       else
       {
@@ -2568,6 +2578,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       if (opengl_shader_load(&tiles_nm_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
       {
         tiles_nm_shader.loc_tile_offset = glGetUniformLocation(tiles_nm_shader.header.program, "u_tile_origin");
+        tiles_nm_shader.loc_tile_size = glGetUniformLocation(tiles_nm_shader.header.program, "u_tile_size");
+        tiles_nm_shader.loc_texture_size = glGetUniformLocation(tiles_nm_shader.header.program, "u_texture_size");
       }
       else
       {
@@ -2630,10 +2642,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       glBindVertexArray(tile_vao);
-      zai_render_height_texutre(state, &tiles_hm_shader, tile_fbo[tile_idx], ZAI_GRID_SIZE,
+      zai_render_height_texutre(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], ZAI_GRID_SIZE,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
-      zai_render_normal_texutre(state, &tiles_nm_shader, tile_normal_fbo[tile_idx], 1024,
+      zai_render_normal_texutre(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], 1024,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       t.dirty_indices_count--;

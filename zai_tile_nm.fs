@@ -4,9 +4,8 @@ in vec2 v_uv;
 layout(location = 0) out vec3 outNormal;
 
 uniform vec3 u_tile_origin;
-
-const float TILE_SIZE = 256.0;
-const float TEXTURE_SIZE = 1024.0;
+uniform float u_tile_size;
+uniform float u_texture_size;
 
 vec2 add = vec2(1.0, 0.0);
 #define HASHSCALE1 0.1031
@@ -61,9 +60,9 @@ float Terrain(vec2 p)
 }
 
 void main() {
-    vec2 worldPos = u_tile_origin.xy * TILE_SIZE + (v_uv - vec2(0.5)) * TILE_SIZE;
+    vec2 worldPos = u_tile_origin.xy * u_tile_size + (v_uv - vec2(0.5)) * u_tile_size;
     
-    vec2 e = vec2(TILE_SIZE / TEXTURE_SIZE, 0.0); 
+    vec2 e = vec2(u_tile_size / u_texture_size, 0.0); 
     float hx = Terrain(worldPos + e.xy) - Terrain(worldPos - e.xy);
     float hz = Terrain(worldPos + e.yx) - Terrain(worldPos - e.yx);
     

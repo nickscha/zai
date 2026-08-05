@@ -5,9 +5,8 @@ in vec2 v_uv;
 layout(location = 0) out float outHeight;
 
 uniform vec3 u_tile_origin;
-
-const float TILE_SIZE = 256.0;
-const float GRID_RES = 65.0;
+uniform float u_tile_size;
+uniform float u_texture_size;
 
 vec2 add = vec2(1.0, 0.0);
 #define HASHSCALE1 0.1031
@@ -57,8 +56,8 @@ float Terrain(vec2 p)
 void main()
 {
     vec2 grid_pos = gl_FragCoord.xy - vec2(0.5);
-    vec2 local_pos = (grid_pos / (GRID_RES - 1.0) - vec2(0.5)) * TILE_SIZE;
-    vec2 worldPos = local_pos + (u_tile_origin.xy * TILE_SIZE);
+    vec2 local_pos = (grid_pos / (u_texture_size - 1.0) - vec2(0.5)) * u_tile_size;
+    vec2 worldPos = local_pos + (u_tile_origin.xy * u_tile_size);
 
     outHeight = Terrain(worldPos);
 }
