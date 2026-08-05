@@ -12,9 +12,6 @@ out float v_is_dirty_pass;
 out vec2 v_uv;
 out vec3 v_worldPos;
 
-const float GRID_RES = 65.0;
-const float TILE_SIZE = 256.0;
-
 float hash(vec2 p)
 {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
