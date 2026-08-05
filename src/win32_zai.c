@@ -2700,7 +2700,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
-      glUniform1i(tiles_shader.loc_is_dirty, (i32)zai_tile_is_dirty(&t, i));
+      glUniform1f(tiles_shader.loc_is_dirty, (f32)zai_tile_is_dirty(&t, i));
 
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
