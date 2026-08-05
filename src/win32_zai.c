@@ -2429,13 +2429,19 @@ ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-ZAI_API u8 zai_tile_is_visible(zai_frustum *f, f32 tileX, f32 tileZ, f32 tileSize)
+ZAI_API u8 zai_tile_is_visible(
+    zai_frustum *f,
+    f32 tileX,
+    f32 tileZ,
+    f32 tileSize,
+    f32 minHeight,
+    f32 maxHeight)
 {
-  f32 radius = tileSize * 0.70710678f; /* sqrt(2) / 2 */
+  f32 minX = tileX * tileSize - tileSize * 0.5f;
+  f32 maxX = tileX * tileSize + tileSize * 0.5f;
 
-  f32 cx = tileX * tileSize;
-  f32 cy = 0.0f;
-  f32 cz = tileZ * tileSize;
+  f32 minZ = tileZ * tileSize - tileSize * 0.5f;
+  f32 maxZ = tileZ * tileSize + tileSize * 0.5f;
 
   i32 i;
 
@@ -2443,13 +2449,11 @@ ZAI_API u8 zai_tile_is_visible(zai_frustum *f, f32 tileX, f32 tileZ, f32 tileSiz
   {
     zai_vec4 *p = &f->planes[i];
 
-    f32 dist =
-        p->x * cx +
-        p->y * cy +
-        p->z * cz +
-        p->w;
+    f32 px = (p->x >= 0.0f) ? maxX : minX;
+    f32 py = (p->y >= 0.0f) ? maxHeight : minHeight;
+    f32 pz = (p->z >= 0.0f) ? maxZ : minZ;
 
-    if (dist < -radius)
+    if (p->x * px + p->y * py + p->z * pz + p->w < 0.0f)
     {
       return 0;
     }
@@ -2672,7 +2676,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
-      if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_SIZE))
+      if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_SIZE, -100.0f, 600.0f))
       {
         continue;
       }
