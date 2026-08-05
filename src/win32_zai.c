@@ -952,6 +952,8 @@ typedef struct shader_tiles
   i32 loc_camera;
   i32 loc_sun_dir;
   i32 loc_camera_view_dir;
+  i32 loc_tile_size;
+  i32 loc_grid_res;
 
 } shader_tiles;
 
@@ -2519,6 +2521,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
         tiles_shader.loc_heightmap = glGetUniformLocation(tiles_shader.header.program, "u_heightmap");
         tiles_shader.loc_normalmap = glGetUniformLocation(tiles_shader.header.program, "u_normalmap");
+        tiles_shader.loc_tile_size = glGetUniformLocation(tiles_shader.header.program, "u_tile_size");
+        tiles_shader.loc_grid_res = glGetUniformLocation(tiles_shader.header.program, "u_grid_res");
 
         tiles_shader.loc_iResolution = glGetUniformLocation(tiles_shader.header.program, "iResolution");
         tiles_shader.loc_sun_dir = glGetUniformLocation(tiles_shader.header.program, "sunDir");
@@ -2680,6 +2684,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniform3f(tiles_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
+    glUniform1f(tiles_shader.loc_tile_size, ZAI_TILE_SIZE);
+    glUniform1f(tiles_shader.loc_grid_res, ZAI_GRID_SIZE);
     glUniform1i(tiles_shader.loc_heightmap, 0);
     glUniform1i(tiles_shader.loc_normalmap, 1);
 
