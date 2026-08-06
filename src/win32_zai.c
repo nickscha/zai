@@ -2381,7 +2381,7 @@ ZAI_API u32 zai_create_height_fbo(u32 tex)
   return fbo;
 }
 
-ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *tile_hm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+ZAI_API void zai_render_height_texture(win32_zai_state *state, shader_tile_hm *tile_hm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
@@ -2396,7 +2396,7 @@ ZAI_API void zai_render_height_texutre(win32_zai_state *state, shader_tile_hm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-ZAI_API void zai_render_normal_texutre(win32_zai_state *state, shader_tile_nm *tile_nm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+ZAI_API void zai_render_normal_texture(win32_zai_state *state, shader_tile_nm *tile_nm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
@@ -2607,7 +2607,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     {
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
-      i32 tile_dist = t.tile_distance[tile_idx];
+      i32 tile_dist = t.tile_lod[tile_idx];
       u32 height_tex_size = ZAI_GRID_SIZE;
       u32 normal_tex_size = 1024 / (1 << (u32)tile_dist);
 
@@ -2646,10 +2646,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       glBindVertexArray(tile_vao);
-      zai_render_height_texutre(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], ZAI_GRID_SIZE,
+      zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], ZAI_GRID_SIZE,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
-      zai_render_normal_texutre(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
+      zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       t.dirty_indices_count--;
