@@ -12,10 +12,6 @@
 #endif
 #define ZAI_TILES_TOTAL (ZAI_TILES_PER_SIDE * ZAI_TILES_PER_SIDE)
 
-#ifndef ZAI_TILES_RINGS_PER_LOD
-#define ZAI_TILES_RINGS_PER_LOD 2
-#endif
-
 /* SoA tiles setup */
 typedef struct zai_tiles
 {
@@ -26,7 +22,7 @@ typedef struct zai_tiles
     /* Data Arrays (Indexed via toroidal wrapping) */
     i32 tile_x[ZAI_TILES_TOTAL];
     i32 tile_z[ZAI_TILES_TOTAL];
-    i32 tile_lod[ZAI_TILES_TOTAL];
+    i32 tile_distance[ZAI_TILES_TOTAL];
 
     /* Sparse Dirty flag tracking */
     u16 dirty_indices[ZAI_TILES_TOTAL]; /* Which index ot the tile_x/z is marked dirty */
@@ -57,12 +53,11 @@ ZAI_API ZAI_INLINE u32 zai_tile_index(i32 x, i32 z)
     return (u32)(slot_z * ZAI_TILES_PER_SIDE + slot_x);
 }
 
-ZAI_API ZAI_INLINE i32 zai_tile_lod(i32 x, i32 z, i32 center_x, i32 center_z)
+ZAI_API ZAI_INLINE i32 zai_tile_distance(i32 x, i32 z, i32 center_x, i32 center_z)
 {
     i32 dx = zai_absi(x - center_x);
     i32 dz = zai_absi(z - center_z);
-    i32 dist = zai_maxi(dx, dz);
-    return dist / ZAI_TILES_RINGS_PER_LOD;
+    return zai_maxi(dx, dz);
 }
 
 ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
@@ -97,7 +92,7 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
 
             t->tile_x[i] = x;
             t->tile_z[i] = z;
-            t->tile_lod[i] = zai_tile_lod(x, z, camera_tile_x, camera_tile_z);
+            t->tile_distance[i] = zai_tile_distance(x, z, camera_tile_x, camera_tile_z);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
     }
@@ -190,15 +185,15 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
         }
     }
 
-    /* LOD Calculation */
+    /* Distance Calculation */
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
-        i32 current_lod = t->tile_lod[i];
-        i32 new_lod = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
+        i32 distance_old = t->tile_distance[i];
+        i32 distance_new = zai_tile_distance(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
 
-        if (current_lod != new_lod)
+        if (distance_old != distance_new)
         {
-            t->tile_lod[i] = new_lod;
+            t->tile_distance[i] = distance_new;
 
             if (!zai_tile_is_dirty(t, i))
             {
