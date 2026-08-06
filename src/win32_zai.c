@@ -2453,9 +2453,10 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
   static shader_tiles tiles_shader = {0};
 
-  static i32 gridIndexCount = 0;
+#define LOD_COUNT 6
   static u32 grid_vao;
-  static u32 grid_ibo;
+  static i32 gridIndexCounts[LOD_COUNT][16] = {0};
+  static u32 grid_ibos[LOD_COUNT][16] = {0};
 
   static shader_tile_hm tiles_hm_shader = {0};
   static shader_tile_nm tiles_nm_shader = {0};
@@ -2464,9 +2465,16 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   static u32 tile_normal_tex[ZAI_TILES_TOTAL];
   static u32 tile_normal_fbo[ZAI_TILES_TOTAL];
   static u32 tile_vao;
+  static i32 tile_rendered_lod[ZAI_TILES_TOTAL];
 
   if (!tiles_initialized)
   {
+    u32 i;
+    for (i = 0; i < ZAI_TILES_TOTAL; ++i)
+    {
+      tile_rendered_lod[i] = -1; /* -1 = Uninitialized texture state */
+    }
+
     /* Setup tiles */
     ZAI_PROFILER_BEGIN(tile_init);
     zai_tiles_init(&t, camera_tile_x, camera_tile_z);
@@ -2569,19 +2577,27 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
     /* Generate Grid */
     {
+      u8 mask;
+      u32 i;
+
       u16 gridIndices[MAX_INDICES];
 
       glGenVertexArrays(1, &grid_vao);
       glBindVertexArray(grid_vao);
 
-      gridIndexCount = zai_geometry_grid_lod(
-          ZAI_GRID_SIZE,
-          ZAI_GEOMETRY_LOD_EDGE_NORTH | ZAI_GEOMETRY_LOD_EDGE_EAST | ZAI_GEOMETRY_LOD_EDGE_SOUTH | ZAI_GEOMETRY_LOD_EDGE_WEST,
-          gridIndices);
+      for (i = 0; i < LOD_COUNT; ++i)
+      {
+        i32 grid_resolution = ((ZAI_GRID_SIZE - 1) / (1 << (u32)i)) + 1;
 
-      glGenBuffers(1, &grid_ibo);
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grid_ibo);
-      glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(gridIndices), gridIndices, GL_STATIC_DRAW);
+        for (mask = 0; mask < 16; ++mask)
+        {
+          gridIndexCounts[i][mask] = zai_geometry_grid_lod(grid_resolution, (u32)mask, gridIndices);
+
+          glGenBuffers(1, &grid_ibos[i][mask]);
+          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grid_ibos[i][mask]);
+          glBufferData(GL_ELEMENT_ARRAY_BUFFER, gridIndexCounts[i][mask] * (i32)sizeof(u16), gridIndices, GL_STATIC_DRAW);
+        }
+      }
     }
 
     tiles_initialized = 1;
@@ -2608,21 +2624,21 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     {
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
-      i32 tile_dist = t.tile_lod[tile_idx];
-      u32 height_tex_size = ZAI_GRID_SIZE;
-      u32 normal_tex_size = 1024 / (1 << (u32)tile_dist);
+      i32 tile_lod = t.tile_lod[tile_idx];
+      u32 height_tex_size = (u32)((ZAI_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
+      u32 normal_tex_size = 1024 / (1 << (u32)tile_lod);
 
       /* Height Texture */
       if (tile_tex[tile_idx] == 0)
       {
         glGenTextures(1, &tile_tex[tile_idx]);
-        glBindTexture(GL_TEXTURE_2D, tile_tex[tile_idx]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, (i32)height_tex_size, (i32)height_tex_size, 0, GL_RED, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       }
+      glBindTexture(GL_TEXTURE_2D, tile_tex[tile_idx]);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, (i32)height_tex_size, (i32)height_tex_size, 0, GL_RED, GL_FLOAT, NULL);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
       /* Test: Adaptive Normal texture size depending on distance */
       if (tile_normal_tex[tile_idx] == 0)
@@ -2652,6 +2668,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
       zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
+
+      /* Mark that texture update is complete for this LOD */
+      tile_rendered_lod[tile_idx] = tile_lod;
 
       t.dirty_indices_count--;
       updates_per_frame--;
@@ -2686,7 +2705,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
     glUniform1f(tiles_shader.loc_tile_size, ZAI_TILE_SIZE);
-    glUniform1f(tiles_shader.loc_grid_res, ZAI_GRID_SIZE);
     glUniform1i(tiles_shader.loc_heightmap, 0);
     glUniform1i(tiles_shader.loc_normalmap, 1);
 
@@ -2695,13 +2713,27 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
+      u8 mask;
+      i32 tile_lod;
+      u32 grid_res;
+
+      if (tile_rendered_lod[i] < 0)
+      {
+        continue;
+      }
+
       if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_SIZE, -100.0f, 600.0f))
       {
         continue;
       }
 
+      tile_lod = tile_rendered_lod[i];
+      mask = zai_get_rendered_edge_mask(&t, tile_rendered_lod, i);
+      grid_res = (u32)((ZAI_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
+
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glUniform1f(tiles_shader.loc_is_dirty, (f32)zai_tile_is_dirty(&t, i));
+      glUniform1f(tiles_shader.loc_grid_res, (f32)grid_res);
 
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, tile_tex[i]);
@@ -2709,7 +2741,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       glActiveTexture(GL_TEXTURE1);
       glBindTexture(GL_TEXTURE_2D, tile_normal_tex[i]);
 
-      glDrawElements(GL_TRIANGLES, gridIndexCount, GL_UNSIGNED_SHORT, (void *)0);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grid_ibos[tile_lod][mask]);
+      glDrawElements(GL_TRIANGLES, gridIndexCounts[tile_lod][mask], GL_UNSIGNED_SHORT, (void *)0);
     }
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

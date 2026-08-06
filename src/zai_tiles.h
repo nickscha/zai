@@ -99,6 +99,66 @@ ZAI_API ZAI_INLINE u8 zai_tile_edge_mask(i32 x, i32 z, i32 center_x, i32 center_
     return mask;
 }
 
+ZAI_API ZAI_INLINE u8 zai_get_rendered_edge_mask(zai_tiles *t, i32 *tile_rendered_lod, u32 tile_idx)
+{
+    i32 current_lod = tile_rendered_lod[tile_idx];
+    i32 x, z;
+    u8 mask;
+
+    if (current_lod < 0)
+        return ZAI_EDGE_NONE;
+
+    x = t->tile_x[tile_idx];
+    z = t->tile_z[tile_idx];
+    mask = ZAI_EDGE_NONE;
+
+    /* North neighbor (z - 1) */
+    {
+        u32 n_idx = zai_tile_index(x, z - 1);
+        if (t->tile_x[n_idx] == x && t->tile_z[n_idx] == z - 1)
+        {
+            i32 n_lod = tile_rendered_lod[n_idx];
+            if (n_lod > current_lod)
+                mask |= ZAI_EDGE_NORTH;
+        }
+    }
+
+    /* East neighbor (x + 1) */
+    {
+        u32 e_idx = zai_tile_index(x + 1, z);
+        if (t->tile_x[e_idx] == x + 1 && t->tile_z[e_idx] == z)
+        {
+            i32 e_lod = tile_rendered_lod[e_idx];
+            if (e_lod > current_lod)
+                mask |= ZAI_EDGE_EAST;
+        }
+    }
+
+    /* South neighbor (z + 1) */
+    {
+        u32 s_idx = zai_tile_index(x, z + 1);
+        if (t->tile_x[s_idx] == x && t->tile_z[s_idx] == z + 1)
+        {
+            i32 s_lod = tile_rendered_lod[s_idx];
+            if (s_lod > current_lod)
+                mask |= ZAI_EDGE_SOUTH;
+        }
+    }
+
+    /* West neighbor (x - 1) */
+    {
+        u32 w_idx = zai_tile_index(x - 1, z);
+        if (t->tile_x[w_idx] == x - 1 && t->tile_z[w_idx] == z)
+        {
+            i32 w_lod = tile_rendered_lod[w_idx];
+            if (w_lod > current_lod)
+                mask |= ZAI_EDGE_WEST;
+        }
+    }
+
+    return mask;
+}
+
 ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
 {
     u16 i;
