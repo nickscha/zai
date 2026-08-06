@@ -112,6 +112,32 @@ ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
     return 0;
 }
 
+ZAI_API ZAI_INLINE void zai_tiles_sort_dirty_by_distance(zai_tiles *t)
+{
+    i32 n = (i32)t->dirty_indices_count;
+    i32 gap, i, j;
+
+    if (n < 2)
+    {
+        return;
+    }
+
+    for (gap = n / 2; gap > 0; gap /= 2)
+    {
+        for (i = gap; i < n; ++i)
+        {
+            u16 temp_idx = t->dirty_indices[i];
+            i32 temp_dist = t->tile_lod[temp_idx];
+
+            for (j = i; j >= gap && t->tile_lod[t->dirty_indices[j - gap]] < temp_dist; j -= gap)
+            {
+                t->dirty_indices[j] = t->dirty_indices[j - gap];
+            }
+            t->dirty_indices[j] = temp_idx;
+        }
+    }
+}
+
 ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
     i32 x, z;
@@ -136,6 +162,8 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
     }
+
+    zai_tiles_sort_dirty_by_distance(t);
 }
 
 /* Toroidal wrap around */
@@ -258,6 +286,8 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
             }
         }
     }
+
+    zai_tiles_sort_dirty_by_distance(t);
 }
 
 #endif /* ZAI_TILES_H */
