@@ -18,6 +18,8 @@ typedef struct zai_tiles
     /* General information */
     i32 origin_x; /* The bottom left origin X */
     i32 origin_z; /* The bottom left origin Z */
+    i32 camera_x;
+    i32 camera_z;
 
     /* Data Arrays (Indexed via toroidal wrapping) */
     i32 tile_x[ZAI_TILES_TOTAL];
@@ -82,6 +84,8 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
 
     t->origin_x = camera_tile_x - half;
     t->origin_z = camera_tile_z - half;
+    t->camera_x = -100000; /* TODO: use i32 max */
+    t->camera_z = -100000; /* TODO: use i32 max */
     t->dirty_indices_count = 0;
 
     for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
@@ -106,6 +110,15 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
     i32 new_origin_z = camera_tile_z - half;
     i32 x, z;
     u32 i;
+
+    /* If camera position hasn't changed there is nothing to calculate */
+    if (t->camera_x == camera_tile_x && t->camera_z == camera_tile_z)
+    {
+        return;
+    }
+
+    t->camera_x = camera_tile_x;
+    t->camera_z = camera_tile_z;
 
     /* If camera is to far away reinitialize everyting */
     if (zai_absi(new_origin_x - t->origin_x) >= ZAI_TILES_PER_SIDE ||
