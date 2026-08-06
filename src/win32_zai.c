@@ -2635,21 +2635,33 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     {
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
+      i32 tile_dist = t.tile_distance[tile_idx];
+      u32 noram_tex_size = 1024 / (1 << (u32)tile_dist);
 
       if (tile_tex[tile_idx] == 0)
       {
         tile_tex[tile_idx] = zai_create_height_texture(ZAI_GRID_SIZE);
         tile_fbo[tile_idx] = zai_create_height_fbo(tile_tex[tile_idx]);
 
-        tile_normal_tex[tile_idx] = zai_create_normal_texture(1024);
+        tile_normal_tex[tile_idx] = zai_create_normal_texture(noram_tex_size);
         tile_normal_fbo[tile_idx] = zai_create_height_fbo(tile_normal_tex[tile_idx]);
+      }
+
+      /* Test: Adaptive Normal texture size depending on distance */
+      {
+        glBindTexture(GL_TEXTURE_2D, tile_normal_tex[tile_idx]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, (i32)noram_tex_size, (i32)noram_tex_size, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       }
 
       glBindVertexArray(tile_vao);
       zai_render_height_texutre(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], ZAI_GRID_SIZE,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
-      zai_render_normal_texutre(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], 1024,
+      zai_render_normal_texutre(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], noram_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       t.dirty_indices_count--;
