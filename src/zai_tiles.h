@@ -14,10 +14,10 @@
 
 /* Edge Mask */
 #define ZAI_EDGE_NONE 0x00
-#define ZAI_EDGE_NORTH 0x01
-#define ZAI_EDGE_EAST 0x02
-#define ZAI_EDGE_SOUTH 0x04
-#define ZAI_EDGE_WEST 0x08
+#define ZAI_EDGE_NORTH 1 << 0
+#define ZAI_EDGE_SOUTH 1 << 1
+#define ZAI_EDGE_WEST 1 << 2
+#define ZAI_EDGE_EAST 1 << 3
 
 /* SoA tiles setup */
 typedef struct zai_tiles
@@ -67,7 +67,9 @@ ZAI_API ZAI_INLINE i32 zai_tile_lod(i32 x, i32 z, i32 center_x, i32 center_z)
 {
     i32 dx = zai_absi(x - center_x);
     i32 dz = zai_absi(z - center_z);
-    return zai_maxi(dx, dz) / 2; /* TODO */
+    i32 distance = zai_maxi(dx, dz);
+
+    return distance / 2;
 }
 
 ZAI_API ZAI_INLINE u8 zai_tile_edge_mask(i32 x, i32 z, i32 center_x, i32 center_z, i32 current_distance)

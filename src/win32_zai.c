@@ -2453,7 +2453,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
   static shader_tiles tiles_shader = {0};
 
-  static u16 gridIndices[MAX_INDICES];
   static i32 gridIndexCount = 0;
   static u32 grid_vao;
   static u32 grid_ibo;
@@ -2570,13 +2569,15 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
     /* Generate Grid */
     {
+      u16 gridIndices[MAX_INDICES];
+
+      glGenVertexArrays(1, &grid_vao);
+      glBindVertexArray(grid_vao);
+
       gridIndexCount = zai_geometry_grid_lod(
           ZAI_GRID_SIZE,
           ZAI_GEOMETRY_LOD_EDGE_NORTH | ZAI_GEOMETRY_LOD_EDGE_EAST | ZAI_GEOMETRY_LOD_EDGE_SOUTH | ZAI_GEOMETRY_LOD_EDGE_WEST,
           gridIndices);
-
-      glGenVertexArrays(1, &grid_vao);
-      glBindVertexArray(grid_vao);
 
       glGenBuffers(1, &grid_ibo);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, grid_ibo);
@@ -2646,7 +2647,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       glBindVertexArray(tile_vao);
-      zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], ZAI_GRID_SIZE,
+      zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], height_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
