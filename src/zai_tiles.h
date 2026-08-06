@@ -59,7 +59,7 @@ ZAI_API ZAI_INLINE i32 zai_tile_distance(i32 x, i32 z, i32 center_x, i32 center_
 {
     i32 dx = zai_absi(x - center_x);
     i32 dz = zai_absi(z - center_z);
-    return zai_maxi(dx, dz);
+    return zai_maxi(dx, dz) / 2; /* TODO */
 }
 
 ZAI_API ZAI_INLINE u8 zai_tile_is_dirty(zai_tiles *t, u32 tile_index)
@@ -84,8 +84,8 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
 
     t->origin_x = camera_tile_x - half;
     t->origin_z = camera_tile_z - half;
-    t->camera_x = -100000; /* TODO: use i32 max */
-    t->camera_z = -100000; /* TODO: use i32 max */
+    t->camera_x = camera_tile_x - 424242; /* force update */
+    t->camera_z = camera_tile_z - 424242; /* force update  */
     t->dirty_indices_count = 0;
 
     for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
