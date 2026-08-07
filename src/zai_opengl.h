@@ -114,6 +114,9 @@ static PFNGLTEXIMAGE1DPROC glTexImage1D;
 typedef void (*PFNGLTEXIMAGE2DPROC)(u32 target, i32 level, i32 internalformat, i32 width, i32 height, i32 border, i32 format, u32 type, const void *pixels);
 static PFNGLTEXIMAGE2DPROC glTexImage2D;
 
+typedef void (*PFNGLTEXSUBIMAGE2DPROC)(u32 target, i32 level, i32 xoffset, i32 yoffset, i32 width, i32 height, i32 format, u32 type, const void *pixels);
+static PFNGLTEXSUBIMAGE2DPROC glTexSubImage2D;
+
 typedef void (*PFNGLTEXPARAMETERIPROC)(u32 target, u32 pname, i32 param);
 static PFNGLTEXPARAMETERIPROC glTexParameteri;
 
@@ -297,6 +300,7 @@ ZAI_API ZAI_INLINE u8 zai_opengl_load_functions(zai_opengl_function_loader load)
     glBindTexture = (PFNGLBINDTEXTUREPROC)load("glBindTexture");
     glTexImage1D = (PFNGLTEXIMAGE1DPROC)load("glTexImage1D");
     glTexImage2D = (PFNGLTEXIMAGE2DPROC)load("glTexImage2D");
+    glTexSubImage2D = (PFNGLTEXSUBIMAGE2DPROC)load("glTexSubImage2D");
 
     glTexParameteri = (PFNGLTEXPARAMETERIPROC)load("glTexParameteri");
     glPixelStorei = (PFNGLPIXELSTOREIPROC)load("glPixelStorei");

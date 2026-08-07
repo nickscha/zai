@@ -2667,6 +2667,42 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], height_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
+      /* 
+      Testing only:
+        - Read back the heights to CPU 
+        - Modify heights
+        - Reupload texture with changed heights
+      */
+      if (t.tile_x[tile_idx] == camera_tile_x && t.tile_z[tile_idx] == camera_tile_z)
+      {
+        f32 cpu_heights[ZAI_GRID_SIZE * ZAI_GRID_SIZE];
+        u32 x, z;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, tile_fbo[tile_idx]);
+        glReadPixels(0, 0, ZAI_GRID_SIZE, ZAI_GRID_SIZE, GL_RED, GL_FLOAT, cpu_heights);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        for (z = 0; z < ZAI_GRID_SIZE; ++z)
+        {
+          for (x = 0; x < ZAI_GRID_SIZE; ++x)
+          {
+            u32 i = z * ZAI_GRID_SIZE + x;
+            f32 h = cpu_heights[i];
+            u32 gap = 10;
+
+            if (z > gap && z < ZAI_GRID_SIZE - gap && x > gap && x < ZAI_GRID_SIZE - gap)
+            {
+              h = 0.0f;
+            }
+
+            cpu_heights[i] = h;
+          }
+        }
+
+        glBindTexture(GL_TEXTURE_2D, tile_tex[tile_idx]);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ZAI_GRID_SIZE, ZAI_GRID_SIZE, GL_RED, GL_FLOAT, cpu_heights);
+      }
+
       zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
