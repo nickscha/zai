@@ -2368,7 +2368,7 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
 }
 
 #define ZAI_TILE_SIZE 256.0f
-#define ZAI_GRID_SIZE 129
+#define ZAI_GRID_SIZE 65
 
 ZAI_API u32 zai_create_height_fbo(u32 tex)
 {
