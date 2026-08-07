@@ -2603,9 +2603,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     tiles_initialized = 1;
   }
 
-  (void)state;
-  (void)camera;
-
   /* Update camera tile based on camera world position */
   camera_tile_x = (i32)zai_floorf((camera->position.x + ZAI_TILE_SIZE * 0.5f) / ZAI_TILE_SIZE);
   camera_tile_z = (i32)zai_floorf((camera->position.z + ZAI_TILE_SIZE * 0.5f) / ZAI_TILE_SIZE);
