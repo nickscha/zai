@@ -122,18 +122,12 @@ void main()
     col = mix(col, fogCol, totalFog);
 
     col = pow(col, vec3(0.4545));
-    
-    /*
-    if (v_is_dirty_pass > 0.5)
-    {
-        FragColor = vec4(1.0, 0.1, 0.1, 1.0);
-    }
-    else
-    */
 
     if (visualization_mode < 0.5f) {
         FragColor = vec4(col, 1.0);
     } else if (visualization_mode < 1.5f) {
         FragColor = vec4(normal * 0.5 + 0.5, 1.0); /* map normal to 0 - 1 range */
+    }  else if (visualization_mode < 2.5f) {
+        FragColor = v_is_dirty_pass > 0.5 ? vec4(1.0, 0.1, 0.1, 1.0) : vec4(col, 1.0);
     }
 }

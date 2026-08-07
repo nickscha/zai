@@ -2699,8 +2699,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_V] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_V])
     {
       visualization_mode++;
-      
-      if (visualization_mode > 1)
+
+      if (visualization_mode > 2)
       {
         visualization_mode = 0;
       }
