@@ -954,6 +954,7 @@ typedef struct shader_tiles
   i32 loc_camera_view_dir;
   i32 loc_tile_size;
   i32 loc_grid_res;
+  i32 loc_visualization_mode;
 
 } shader_tiles;
 
@@ -2450,6 +2451,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   static zai_tiles t = {0};
   static i32 camera_tile_x = 0;
   static i32 camera_tile_z = 0;
+  static u32 visualization_mode = 0;
 
   static shader_tiles tiles_shader = {0};
 
@@ -2507,6 +2509,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         tiles_shader.loc_sun_dir = glGetUniformLocation(tiles_shader.header.program, "sunDir");
         tiles_shader.loc_camera = glGetUniformLocation(tiles_shader.header.program, "iCamera");
         tiles_shader.loc_camera_view_dir = glGetUniformLocation(tiles_shader.header.program, "iViewDir");
+
+        tiles_shader.loc_visualization_mode = glGetUniformLocation(tiles_shader.header.program, "visualization_mode");
       }
       else
       {
@@ -2692,6 +2696,16 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       wireframe_enabled = !wireframe_enabled;
     }
 
+    if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_V] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_V])
+    {
+      visualization_mode++;
+      
+      if (visualization_mode > 1)
+      {
+        visualization_mode = 0;
+      }
+    }
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
@@ -2702,6 +2716,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
     glUniform1f(tiles_shader.loc_tile_size, ZAI_TILE_SIZE);
+    glUniform1f(tiles_shader.loc_visualization_mode, (f32)visualization_mode);
     glUniform1i(tiles_shader.loc_heightmap, 0);
     glUniform1i(tiles_shader.loc_normalmap, 1);
 

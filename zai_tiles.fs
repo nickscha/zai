@@ -10,6 +10,7 @@ uniform vec3 iResolution;
 uniform vec3 sunDir;
 uniform vec3 iCamera;
 uniform vec3 iViewDir;
+uniform float visualization_mode; /* just for testing */
 uniform sampler2D u_normalmap;
 
 vec3 getFogColor(vec3 rd)
@@ -129,9 +130,10 @@ void main()
     }
     else
     */
-    {
-        FragColor = vec4(col, 1.0);
-    }
 
-    //FragColor = vec4(normal * 0.5 + 0.5, 1.0); /* map normal to 0 - 1 range */
+    if (visualization_mode < 0.5f) {
+        FragColor = vec4(col, 1.0);
+    } else if (visualization_mode < 1.5f) {
+        FragColor = vec4(normal * 0.5 + 0.5, 1.0); /* map normal to 0 - 1 range */
+    }
 }
