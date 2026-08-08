@@ -72,26 +72,26 @@ ZAI_API ZAI_INLINE i32 zai_tile_lod(i32 x, i32 z, i32 center_x, i32 center_z)
     return distance / 2;
 }
 
-ZAI_API ZAI_INLINE u8 zai_tile_edge_mask(i32 x, i32 z, i32 center_x, i32 center_z, i32 current_distance)
+ZAI_API ZAI_INLINE u8 zai_tile_edge_mask(i32 x, i32 z, i32 center_x, i32 center_z, i32 current_lod)
 {
     u8 mask = ZAI_EDGE_NONE;
 
-    if (zai_tile_lod(x, z - 1, center_x, center_z) > current_distance)
+    if (zai_tile_lod(x, z - 1, center_x, center_z) > current_lod)
     {
         mask |= ZAI_EDGE_NORTH;
     }
 
-    if (zai_tile_lod(x + 1, z, center_x, center_z) > current_distance)
+    if (zai_tile_lod(x + 1, z, center_x, center_z) > current_lod)
     {
         mask |= ZAI_EDGE_EAST;
     }
 
-    if (zai_tile_lod(x, z + 1, center_x, center_z) > current_distance)
+    if (zai_tile_lod(x, z + 1, center_x, center_z) > current_lod)
     {
         mask |= ZAI_EDGE_SOUTH;
     }
 
-    if (zai_tile_lod(x - 1, z, center_x, center_z) > current_distance)
+    if (zai_tile_lod(x - 1, z, center_x, center_z) > current_lod)
     {
         mask |= ZAI_EDGE_WEST;
     }
