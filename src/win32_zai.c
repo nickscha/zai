@@ -2688,7 +2688,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
           {
             u32 i = z * height_tex_size + x;
             f32 h = cpu_heights[i];
-            u32 gap = 4;
+            u32 gap = 6;
 
             if (z > gap && z < height_tex_size - gap && x > gap && x < height_tex_size - gap)
             {
