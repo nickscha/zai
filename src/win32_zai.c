@@ -2701,6 +2701,45 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
           }
         }
 
+        /* Apply stamp */
+        {
+          f32 tile_origin_x = (f32)t.tile_x[tile_idx] * ZAI_TILE_SIZE;
+          f32 tile_origin_z = (f32)t.tile_z[tile_idx] * ZAI_TILE_SIZE;
+
+          f32 stamp_world_x = tile_origin_x + (ZAI_TILE_SIZE * 0.5f);
+          f32 stamp_world_z = tile_origin_z + (ZAI_TILE_SIZE * 0.5f);
+
+          f32 stamp_radius = ZAI_TILE_SIZE * 0.2f;
+          f32 stamp_depth = 25.0f;
+
+          f32 texel_step = ZAI_TILE_SIZE / (f32)(height_tex_size - 1);
+
+          for (z = 0; z < height_tex_size; ++z)
+          {
+            f32 world_z = tile_origin_z + ((f32)z * texel_step);
+
+            for (x = 0; x < height_tex_size; ++x)
+            {
+              f32 world_x = tile_origin_x + ((f32)x * texel_step);
+              u32 i = z * height_tex_size + x;
+              f32 h = cpu_heights[i];
+              f32 dx = world_x - stamp_world_x;
+              f32 dz = world_z - stamp_world_z;
+              f32 distance_squared = dx * dx + dz * dz;
+
+              if (distance_squared < (stamp_radius * stamp_radius))
+              {
+                f32 distance = zai_sqrtf(distance_squared);
+                f32 falloff = 1.0f - (distance / stamp_radius);
+
+                h -= stamp_depth * falloff;
+              }
+
+              cpu_heights[i] = h;
+            }
+          }
+        }
+
         glBindTexture(GL_TEXTURE_2D, tile_tex[tile_idx]);
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (i32)height_tex_size, (i32)height_tex_size, GL_RED, GL_FLOAT, cpu_heights);
       }
