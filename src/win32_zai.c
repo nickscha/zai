@@ -2643,7 +2643,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-      /* Test: Adaptive Normal texture size depending on distance */
+      /* Normal Map */
       if (tile_normal_tex[tile_idx] == 0)
       {
         glGenTextures(1, &tile_normal_tex[tile_idx]);
@@ -2701,18 +2701,54 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
           }
         }
 
-        /* Apply stamp */
+        /* Apply stamps */
         {
           f32 tile_origin_x = (f32)t.tile_x[tile_idx] * ZAI_TILE_SIZE;
           f32 tile_origin_z = (f32)t.tile_z[tile_idx] * ZAI_TILE_SIZE;
-
-          f32 stamp_world_x = tile_origin_x + (ZAI_TILE_SIZE * 0.5f);
-          f32 stamp_world_z = tile_origin_z + (ZAI_TILE_SIZE * 0.5f);
-
-          f32 stamp_radius = ZAI_TILE_SIZE * 0.2f;
-          f32 stamp_depth = 25.0f;
-
           f32 texel_step = ZAI_TILE_SIZE / (f32)(height_tex_size - 1);
+
+          typedef enum
+          {
+            STAMP_DIG,
+            STAMP_RAISE,
+            STAMP_FLATTEN
+          } zai_stamp_type;
+
+          typedef struct
+          {
+            zai_stamp_type type;
+            f32 world_x;
+            f32 world_z;
+            f32 radius;
+            f32 strength;      /* Depth/Height value */
+            f32 target_height; /* Used for flatten only */
+          } zai_stamp;
+
+          zai_stamp test_stamps[3];
+          u32 test_stamp_count = 3;
+
+          f32 tile_center_x = tile_origin_x + (ZAI_TILE_SIZE * 0.5f);
+          f32 tile_center_z = tile_origin_z + (ZAI_TILE_SIZE * 0.5f);
+          f32 offset = ZAI_TILE_SIZE * 0.25f;
+
+          test_stamps[0].type = STAMP_DIG;
+          test_stamps[0].world_x = tile_center_x - offset;
+          test_stamps[0].world_z = tile_center_z;
+          test_stamps[0].radius = ZAI_TILE_SIZE * 0.15f;
+          test_stamps[0].strength = 10.0f;
+
+          test_stamps[1].type = STAMP_RAISE;
+          test_stamps[1].world_x = tile_center_x + offset;
+          test_stamps[1].world_z = tile_center_z;
+          test_stamps[1].radius = ZAI_TILE_SIZE * 0.15f;
+          test_stamps[1].strength = 10.0f;
+
+          test_stamps[2].type = STAMP_FLATTEN;
+          test_stamps[2].world_x = tile_center_x;
+          test_stamps[2].world_z = tile_center_z;
+          test_stamps[2].radius = ZAI_TILE_SIZE * 0.18f;
+          test_stamps[2].strength = 1.0f;      /* 1.0 = hard flatten, lower = soft blend */
+          test_stamps[2].target_height = 5.0f; /* Flatten target elevation plateau */
 
           for (z = 0; z < height_tex_size; ++z)
           {
@@ -2723,16 +2759,39 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
               f32 world_x = tile_origin_x + ((f32)x * texel_step);
               u32 i = z * height_tex_size + x;
               f32 h = cpu_heights[i];
-              f32 dx = world_x - stamp_world_x;
-              f32 dz = world_z - stamp_world_z;
-              f32 distance_squared = dx * dx + dz * dz;
+              u32 s;
 
-              if (distance_squared < (stamp_radius * stamp_radius))
+              for (s = 0; s < test_stamp_count; ++s)
               {
-                f32 distance = zai_sqrtf(distance_squared);
-                f32 falloff = 1.0f - (distance / stamp_radius);
+                zai_stamp *stamp = &test_stamps[s];
 
-                h -= stamp_depth * falloff;
+                f32 dx = world_x - stamp->world_x;
+                f32 dz = world_z - stamp->world_z;
+                f32 distance_squared = dx * dx + dz * dz;
+
+                if (distance_squared < (stamp->radius * stamp->radius))
+                {
+                  f32 distance = zai_sqrtf(distance_squared);
+                  f32 falloff = 1.0f - (distance / stamp->radius);
+
+                  switch (stamp->type)
+                  {
+                  case STAMP_DIG:
+                    h -= stamp->strength * falloff;
+                    break;
+
+                  case STAMP_RAISE:
+                    h += stamp->strength * falloff;
+                    break;
+
+                  case STAMP_FLATTEN:
+                  {
+                    f32 blend_factor = falloff * stamp->strength;
+                    h = h + (stamp->target_height - h) * blend_factor;
+                  }
+                  break;
+                  }
+                }
               }
 
               cpu_heights[i] = h;
@@ -3842,7 +3901,7 @@ ZAI_API i32 start(i32 argc, u8 **argv)
           for (i = 0; i < zai_profiler_entries_count; ++i)
           {
             zai_profiler_entry entry = zai_profiler_entries[i];
-            
+
             t.length = 0;
             zai_sb_s8_pad(&t, entry.name, 23, ' ', ZAI_SB_PAD_RIGHT);
             zai_sb_s8(&t, ": ");
