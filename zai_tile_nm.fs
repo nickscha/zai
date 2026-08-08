@@ -39,6 +39,7 @@ float Terrain(vec2 p)
 
     w = 66.0 * w * w;
 
+    /* 5 octaves which the low res heightmap use */
     for(int i = 0; i < 5; i++)
     {
         f += w * Noise(pos);
@@ -49,6 +50,7 @@ float Terrain(vec2 p)
     float ff = Noise(pos * .002);
     f += pow(abs(ff), 5.0) * 275.0 - 5.0;
 
+    /* add 6 more octaves of detail for high res normal map */
 	for (int i = 0; i < 6; i++)
 	{
 		f += w * Noise(pos);
