@@ -3,9 +3,11 @@
 in vec2 v_uv;
 layout(location = 0) out vec3 outNormal;
 
-uniform vec3 u_tile_origin;
-uniform float u_tile_size;
-uniform float u_texture_size;
+uniform vec3 u_tile_origin; /* where the tile starts */
+uniform float u_tile_size; /* size of a tile (e.g 256.0f world units) */
+uniform float u_texture_size; /* size of the output normal map */
+uniform sampler2D u_stamped_heightmap;  /* gl_nearest low res 5 octaves noise heightmap with stamp terrain modifications */
+uniform float u_stamped_heightmap_size; /* size of the heightmap */
 
 vec2 add = vec2(1.0, 0.0);
 #define HASHSCALE1 0.1031
@@ -69,6 +71,6 @@ void main() {
     float hz = Terrain(worldPos + e.yx) - Terrain(worldPos - e.yx);
     
     vec3 normal = normalize(vec3(-hx, 2.0 * e.x, -hz));
-    
+
     outNormal = normal * 0.5 + 0.5;
 }

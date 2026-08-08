@@ -976,6 +976,8 @@ typedef struct shader_tile_nm
   i32 loc_tile_offset;
   i32 loc_tile_size;
   i32 loc_texture_size;
+  i32 loc_stamped_heightmap;
+  i32 loc_stamped_heightmap_size;
 
 } shader_tile_nm;
 
@@ -2398,7 +2400,7 @@ ZAI_API void zai_render_height_texture(win32_zai_state *state, shader_tile_hm *t
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-ZAI_API void zai_render_normal_texture(win32_zai_state *state, shader_tile_nm *tile_nm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ)
+ZAI_API void zai_render_normal_texture(win32_zai_state *state, shader_tile_nm *tile_nm_shader, f32 tile_size, u32 fbo, u32 size, f32 tileWorldX, f32 tileWorldZ, u32 heightmap_texture, f32 heightmap_texture_size)
 {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo);
   glViewport(0, 0, (i32)size, (i32)size);
@@ -2407,6 +2409,10 @@ ZAI_API void zai_render_normal_texture(win32_zai_state *state, shader_tile_nm *t
   glUniform3f(tile_nm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
   glUniform1f(tile_nm_shader->loc_tile_size, (f32)tile_size);
   glUniform1f(tile_nm_shader->loc_texture_size, (f32)size);
+  glUniform1f(tile_nm_shader->loc_stamped_heightmap, 0);
+  glUniform1f(tile_nm_shader->loc_stamped_heightmap_size, heightmap_texture_size);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, heightmap_texture);
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
@@ -2569,6 +2575,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         tiles_nm_shader.loc_tile_offset = glGetUniformLocation(tiles_nm_shader.header.program, "u_tile_origin");
         tiles_nm_shader.loc_tile_size = glGetUniformLocation(tiles_nm_shader.header.program, "u_tile_size");
         tiles_nm_shader.loc_texture_size = glGetUniformLocation(tiles_nm_shader.header.program, "u_texture_size");
+        tiles_nm_shader.loc_stamped_heightmap = glGetUniformLocation(tiles_nm_shader.header.program, "u_stamped_heightmap");
+        tiles_nm_shader.loc_stamped_heightmap_size = glGetUniformLocation(tiles_nm_shader.header.program, "u_stamped_heightmap_size");
       }
       else
       {
@@ -2804,7 +2812,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
-                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
+                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx], tile_tex[tile_idx], (f32) height_tex_size);
 
       /* Mark that texture update is complete for this LOD */
       tile_rendered_lod[tile_idx] = tile_lod;
