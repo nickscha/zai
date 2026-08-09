@@ -2452,6 +2452,46 @@ ZAI_API u8 zai_tile_is_visible(
   return 1;
 }
 
+ZAI_API void zai_tile_load_shader(shader_tiles *tiles_shader)
+{
+  u32 size_code_vertex = 0;
+  u32 size_code_fragment = 0;
+  u8 *shader_code_vertex = win32_file_read("zai_tiles.vs", &size_code_vertex);
+  u8 *shader_code_fragment = win32_file_read("zai_tiles.fs", &size_code_fragment);
+
+  if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
+  {
+    win32_print("Cannot load tiles shader files!\n");
+    return;
+  }
+
+  if (opengl_shader_load(&tiles_shader->header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
+  {
+    tiles_shader->loc_tile_offset = glGetUniformLocation(tiles_shader->header.program, "u_tile_offset");
+    tiles_shader->loc_view_projection = glGetUniformLocation(tiles_shader->header.program, "u_vp");
+    tiles_shader->loc_is_dirty = glGetUniformLocation(tiles_shader->header.program, "u_is_dirty");
+    tiles_shader->loc_heightmap = glGetUniformLocation(tiles_shader->header.program, "u_heightmap");
+    tiles_shader->loc_normalmap = glGetUniformLocation(tiles_shader->header.program, "u_normalmap");
+    tiles_shader->loc_tile_size = glGetUniformLocation(tiles_shader->header.program, "u_tile_size");
+    tiles_shader->loc_grid_res = glGetUniformLocation(tiles_shader->header.program, "u_grid_res");
+
+    tiles_shader->loc_iResolution = glGetUniformLocation(tiles_shader->header.program, "iResolution");
+    tiles_shader->loc_iTime = glGetUniformLocation(tiles_shader->header.program, "iTime");
+    tiles_shader->loc_sun_dir = glGetUniformLocation(tiles_shader->header.program, "sunDir");
+    tiles_shader->loc_camera = glGetUniformLocation(tiles_shader->header.program, "iCamera");
+    tiles_shader->loc_camera_view_dir = glGetUniformLocation(tiles_shader->header.program, "iViewDir");
+
+    tiles_shader->loc_visualization_mode = glGetUniformLocation(tiles_shader->header.program, "visualization_mode");
+  }
+  else
+  {
+    win32_print("Cannot compile tiles shaders!\n");
+  }
+
+  VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
+  VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
+}
+
 ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_vec3 sun_dir)
 {
   static u8 tiles_initialized = 0;
@@ -2489,45 +2529,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     zai_tiles_init(&t, camera_tile_x, camera_tile_z);
     ZAI_PROFILER_END(tile_init);
 
-    /* Setup shaders */
-    {
-      u32 size_code_vertex = 0;
-      u32 size_code_fragment = 0;
-      u8 *shader_code_vertex = win32_file_read("zai_tiles.vs", &size_code_vertex);
-      u8 *shader_code_fragment = win32_file_read("zai_tiles.fs", &size_code_fragment);
-
-      if (!shader_code_vertex || !shader_code_fragment || size_code_vertex < 1 || size_code_fragment < 1)
-      {
-        win32_print("Cannot load tiles shader files!\n");
-        return;
-      }
-
-      if (opengl_shader_load(&tiles_shader.header, (s8 *)shader_code_vertex, (s8 *)shader_code_fragment))
-      {
-        tiles_shader.loc_tile_offset = glGetUniformLocation(tiles_shader.header.program, "u_tile_offset");
-        tiles_shader.loc_view_projection = glGetUniformLocation(tiles_shader.header.program, "u_vp");
-        tiles_shader.loc_is_dirty = glGetUniformLocation(tiles_shader.header.program, "u_is_dirty");
-        tiles_shader.loc_heightmap = glGetUniformLocation(tiles_shader.header.program, "u_heightmap");
-        tiles_shader.loc_normalmap = glGetUniformLocation(tiles_shader.header.program, "u_normalmap");
-        tiles_shader.loc_tile_size = glGetUniformLocation(tiles_shader.header.program, "u_tile_size");
-        tiles_shader.loc_grid_res = glGetUniformLocation(tiles_shader.header.program, "u_grid_res");
-
-        tiles_shader.loc_iResolution = glGetUniformLocation(tiles_shader.header.program, "iResolution");
-        tiles_shader.loc_iTime = glGetUniformLocation(tiles_shader.header.program, "iTime");
-        tiles_shader.loc_sun_dir = glGetUniformLocation(tiles_shader.header.program, "sunDir");
-        tiles_shader.loc_camera = glGetUniformLocation(tiles_shader.header.program, "iCamera");
-        tiles_shader.loc_camera_view_dir = glGetUniformLocation(tiles_shader.header.program, "iViewDir");
-
-        tiles_shader.loc_visualization_mode = glGetUniformLocation(tiles_shader.header.program, "visualization_mode");
-      }
-      else
-      {
-        win32_print("Cannot compile tiles shaders!\n");
-      }
-
-      VirtualFree(shader_code_vertex, 0, MEM_RELEASE);
-      VirtualFree(shader_code_fragment, 0, MEM_RELEASE);
-    }
+    /* Setup tiles shaders */
+    zai_tile_load_shader(&tiles_shader);
 
     /* Setup FBO heightmap Shader  */
     {
@@ -2615,6 +2618,12 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     }
 
     tiles_initialized = 1;
+  }
+
+  /* reload tiles shader */
+  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_M] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_M])
+  {
+    zai_tile_load_shader(&tiles_shader);
   }
 
   /* Update camera tile based on camera world position */
@@ -2812,7 +2821,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
-                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx], tile_tex[tile_idx], (f32) height_tex_size);
+                                (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx], tile_tex[tile_idx], (f32)height_tex_size);
 
       /* Mark that texture update is complete for this LOD */
       tile_rendered_lod[tile_idx] = tile_lod;
@@ -3072,7 +3081,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
     {
       /* Tiles */
       camera = zai_camera_init();
-      camera.position.y = 1.0f;
+      camera.position.y = 10.0f;
 
       camera_speed = 50.0f;
     }
