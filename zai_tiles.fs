@@ -91,12 +91,16 @@ void main()
 {
     vec3 normal = normalize(texture(u_normalmap, v_uv).rgb * 2.0 - 1.0);
     
-    vec3 matRock  = vec3(0.12, 0.11, 0.10);
     vec3 matGrass = vec3(0.06, 0.10, 0.03);
     vec3 matSnow  = vec3(0.90, 0.92, 0.95);
 
     float slope = normal.y;
     float height = v_worldPos.y;
+
+    float rockNoise = noise2D(v_worldPos.xz * 0.04);
+    vec3 rockDark  = vec3(0.09, 0.085, 0.08);
+    vec3 rockLight = vec3(0.16, 0.15, 0.14);
+    vec3 matRock = mix(rockDark, rockLight, rockNoise);
 
     vec3 mate = matRock;
     float grassBlend = smoothstep(0.6, 0.8, slope);
