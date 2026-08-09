@@ -119,6 +119,10 @@ void main()
     float sunDif = max(dot(normal, sDir), 0.0);
     float moonDif = max(dot(normal, mDir), 0.0);
 
+    // make sun facing material sligthly warmer
+    float sunFacing = pow(sunDif, 2.0);
+    mate *= 1.0 + sunFacing * 0.08;
+
     vec3 sunLightCol = mix(vec3(1.30, 1.15, 0.90), vec3(1.0, 0.45, 0.20), sunsetAmount);
     vec3 moonLightCol = vec3(0.08, 0.12, 0.18); 
 
