@@ -139,6 +139,14 @@ void main()
     light += skyDome * zenith * 0.6 * cavityAO;
     light += bounce * zenith * 0.2; 
 
+    // ground bounce coloring
+    float up = max(normal.y, 0.0);
+    float down = max(-normal.y, 0.0);
+    vec3 skyLight = mix(vec3(0.03, 0.035, 0.04), zenith, up);
+    vec3 groundBounce = vec3(0.025, 0.018, 0.012) * down;
+    light += skyLight * 0.6;
+    light += groundBounce;
+
     vec3 col = mate * light;
 
     vec3 rayDir = normalize(v_worldPos - iCamera);
