@@ -2500,6 +2500,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   static i32 camera_tile_z = 0;
   static u32 visualization_mode = 0;
 
+  static FILETIME fs_last;
   static shader_tiles tiles_shader = {0};
 
 #define LOD_COUNT 6
@@ -2531,6 +2532,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
     /* Setup tiles shaders */
     zai_tile_load_shader(&tiles_shader);
+    fs_last = win32_file_mod_time("zai_tiles.fs");
 
     /* Setup FBO heightmap Shader  */
     {
@@ -2621,9 +2623,13 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   }
 
   /* reload tiles shader */
-  if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_M] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_M])
   {
-    zai_tile_load_shader(&tiles_shader);
+    FILETIME fs_now = win32_file_mod_time("zai_tiles.fs");
+
+    if (CompareFileTime(&fs_now, &fs_last) != 0)
+    {
+      zai_tile_load_shader(&tiles_shader);
+    }
   }
 
   /* Update camera tile based on camera world position */
