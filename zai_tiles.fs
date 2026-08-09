@@ -14,6 +14,28 @@ uniform vec3 iViewDir;
 uniform float visualization_mode; /* just for testing */
 uniform sampler2D u_normalmap;
 
+float hash21(vec2 p)
+{
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float noise2D(vec2 p)
+{
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+
+    f = f * f * (3.0 - 2.0 * f);
+
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
 vec3 getFogColor(vec3 rd)
 {
     float h = max(rd.y, 0.0);
@@ -85,6 +107,9 @@ void main()
     snowBlend = max(snowBlend, frostBlend);
     mate = mix(mate, matSnow, snowBlend);
 
+    float detail = noise2D(v_worldPos.xz * 0.025);
+    mate *= mix(0.85, 1.15, detail);
+
     float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
 
@@ -121,6 +146,11 @@ void main()
     float totalFog = clamp(distFog * heightFog, 0.0, 1.0);
 
     col = mix(col, fogCol, totalFog);
+
+    // far terrain less saturated
+    float distant = smoothstep(100.0, 500.0, dist);
+    float luminance =  dot(col, vec3(0.299, 0.587, 0.114));
+    col = mix(col, vec3(luminance), distant * 0.15);
 
     col = pow(col, vec3(0.4545));
 
