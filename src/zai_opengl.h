@@ -50,8 +50,10 @@
 #define GL_CLAMP_TO_EDGE 0x812F
 #define GL_PACK_ALIGNMENT 0x0D05
 #define GL_UNPACK_ALIGNMENT 0x0CF5
+#define GL_RG 0x8227
 #define GL_RGB 0x1907
 #define GL_RGBA 0x1908
+#define GL_RG8 0x822B
 #define GL_RGB8 0x8051
 #define GL_RGBA8 0x8058
 #define GL_RGB16F 0x881B
