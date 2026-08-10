@@ -89,7 +89,7 @@ vec3 getFogColor(vec3 rd)
 
 void main()
 {
-    vec3 normal = normalize(texture(u_normalmap, v_uv).rgb * 2.0 - 1.0);
+    vec3 normal = texture(u_normalmap, v_uv).rgb * 2.0 - 1.0;
     
     vec3 matGrass = vec3(0.06, 0.10, 0.03);
     vec3 matSnow  = vec3(0.90, 0.92, 0.95);
