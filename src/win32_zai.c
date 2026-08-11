@@ -2859,7 +2859,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     {
       visualization_mode++;
 
-      if (visualization_mode > 2)
+      if (visualization_mode > 6)
       {
         visualization_mode = 0;
       }
@@ -3030,6 +3030,7 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   f32 sun_dir_x;
   f32 sun_dir_y;
   f32 sun_dir_z;
+  zai_vec3 sun_dir;
 
   if (!scene_initialized)
   {
@@ -3175,20 +3176,22 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
     }
   }
 
+  sun_dir = zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z);
+
   /* Render */
   if (active_scene == 0)
   {
-    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
-    zai_render_terrain(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+    zai_render_sky(state, &camera, sun_dir, camera_basis);
+    zai_render_terrain(state, &camera, sun_dir, camera_basis);
   }
   else if (active_scene == 1)
   {
-    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+    zai_render_sky(state, &camera, sun_dir, camera_basis);
     zai_render_surface_nets(state, &camera);
   }
   else if (active_scene == 2)
   {
-    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
+    zai_render_sky(state, &camera, sun_dir, camera_basis);
     zai_render_marching_cubes(state, &camera);
   }
   else if (active_scene == 3)
@@ -3197,8 +3200,8 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   }
   else
   {
-    zai_render_sky(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z), camera_basis);
-    zai_render_tiles(state, &camera, zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z));
+    zai_render_sky(state, &camera, sun_dir, camera_basis);
+    zai_render_tiles(state, &camera, sun_dir);
   }
 
   /* Render text */
