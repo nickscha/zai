@@ -87,6 +87,58 @@ vec3 getFogColor(vec3 rd)
     return sky;
 }
 
+float cloudHash(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float cloudValueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(cloudHash(i + vec2(0.0, 0.0)), cloudHash(i + vec2(1.0, 0.0)), u.x),
+        mix(cloudHash(i + vec2(0.0, 1.0)), cloudHash(i + vec2(1.0, 1.0)), u.x), 
+        u.y
+    );
+}
+
+float getCloudShadow(vec3 pos, vec3 sun_dir, float time) {
+    if (sun_dir.y < 0.001) return 1.0;
+
+    float cloudHeight = 1200.0;
+    float t = (cloudHeight - pos.y) / sun_dir.y;
+    
+    if (t < 0.0) return 1.0; 
+
+    vec3 cloudPos = pos + sun_dir * t;
+
+    vec2 windDir2D = normalize(vec2(1.0, 1.0)); 
+    float windSpeed = 0.02;
+    vec2 windOffset = windDir2D * time * windSpeed;
+    
+    vec2 uv = cloudPos.xz * 0.0003 + windOffset;
+
+    float density = 0.0;
+    float a = 0.5;
+    mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+    
+    for (int i = 0; i < 5; i++) {
+        density += a * cloudValueNoise(uv);
+        uv = rot * uv * 2.02;
+        a *= 0.5;
+    }
+
+    density = smoothstep(0.38, 0.75, density);
+
+    //return mix(1.0, 0.05, density); 
+
+    // sharp shadow falloff
+    float shadowMask = smoothstep(0.0, 0.4, density);
+
+    return mix(1.0, 0.1, shadowMask);
+}
+
 void main()
 {
     vec3 normal = texture(u_normalmap, v_uv).rgb * 2.0 - 1.0;
@@ -137,11 +189,14 @@ void main()
     float bounce = max(dot(normal, normalize(vec3(-sDir.x, 0.0, -sDir.z))), 0.0);
     float cavityAO = smoothstep(-0.2, 0.8, normal.y);
 
+    float cloudShadow = getCloudShadow(v_worldPos, sDir, iTime);
+
     vec3 light = vec3(0.0);
-    light += sunDif * sunLightCol;
+
+    light += sunDif * sunLightCol * cloudShadow; 
     light += moonDif * moonLightCol;
     light += skyDome * zenith * 0.6 * cavityAO;
-    light += bounce * zenith * 0.2; 
+    light += bounce * zenith * 0.2;
 
     /* ground bounce coloring
     float up = max(normal.y, 0.0);
@@ -170,6 +225,8 @@ void main()
     col = mix(col, vec3(luminance), distant * 0.15);
 
     col = pow(col, vec3(0.4545));
+
+    //col = vec3(cloudShadow);
 
     if (visualization_mode < 0.5f) {
         FragColor = vec4(col, 1.0);
