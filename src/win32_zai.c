@@ -3027,9 +3027,6 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
   static f32 camera_basis[9];
   static f32 camera_speed = 1000.0f;
 
-  f32 sun_dir_x;
-  f32 sun_dir_y;
-  f32 sun_dir_z;
   zai_vec3 sun_dir;
 
   if (!scene_initialized)
@@ -3124,17 +3121,12 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
       }
     }
 
-    sun_dir_x = 0.0f;
-    sun_dir_y = 0.0f;
-    sun_dir_z = -1.0f;
+    sun_dir = zai_vec3_init(0.0f, 0.0f, -1.0f);
 
     if (move_sun)
     {
 
       f32 t = (f32)state->platform_state.timing.time_elapsed * 0.5f;
-      f32 len;
-
-      (void)t;
 
       if (state->platform_state.input.keyboard.keys_is_down[ZAI_KEYBOARD_KEY_L] && !state->platform_state.input.keyboard.keys_was_down[ZAI_KEYBOARD_KEY_L])
       {
@@ -3156,27 +3148,16 @@ ZAI_API void zai_render_scene(win32_zai_state *state)
         }
       }
 
-      sun_dir_x = 0.0f;
-      sun_dir_y = zai_sinf(move_val);
-      sun_dir_z = -zai_cosf(move_val);
+      sun_dir = zai_vec3_init(0.0f, zai_sinf(move_val), -zai_cosf(move_val));
 
       if (move_sun_loop)
       {
-        sun_dir_x = 0.0f;
-        sun_dir_y = zai_sinf(t * 0.025f);
-        sun_dir_z = -zai_cosf(t * 0.025f);
+        sun_dir = zai_vec3_init(0.0f, zai_sinf(t * 0.025f), -zai_cosf(t * 0.025f));
       }
 
-      /* TODO(nickscha): BUG in SSE2 scalar & linear algebra library */
-      len = zai_sqrtf(sun_dir_x * sun_dir_x + sun_dir_y * sun_dir_y + sun_dir_z * sun_dir_z);
-
-      sun_dir_x /= len;
-      sun_dir_y /= len;
-      sun_dir_z /= len;
+      sun_dir = zai_vec3_normalize(sun_dir);
     }
   }
-
-  sun_dir = zai_vec3_init(sun_dir_x, sun_dir_y, sun_dir_z);
 
   /* Render */
   if (active_scene == 0)
