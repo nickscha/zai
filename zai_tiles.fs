@@ -171,8 +171,11 @@ void main()
 
     vec3 sDir = normalize(sunDir);
     vec3 mDir = normalize(-sunDir);
-    
-    float sunDif = max(dot(normal, sDir), 0.0);
+
+    float wrap = 0.2; 
+    float sunDif = max(dot(normal, sDir) + wrap, 0.0) / (1.0 + wrap);
+    sunDif = pow(sunDif, 1.5); 
+
     float moonDif = max(dot(normal, mDir), 0.0);
 
     // make sun facing material sligthly warmer
