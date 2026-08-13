@@ -175,7 +175,7 @@ void main()
     float wrap = 0.2; 
     float sunDif = max(dot(normal, sDir) + wrap, 0.0) / (1.0 + wrap);
     sunDif = pow(sunDif, 1.5); 
-
+    
     float moonDif = max(dot(normal, mDir), 0.0);
 
     // make sun facing material sligthly warmer
@@ -232,7 +232,7 @@ void main()
     float luminance =  dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, vec3(luminance), distant * 0.15);
 
-    col = pow(col, vec3(0.4545));
+    col = pow(col, vec3(0.4545)); // Gamma Correction
 
     //col = vec3(cloudShadow);
 
