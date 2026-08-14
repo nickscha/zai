@@ -135,7 +135,6 @@ float getCloudShadow(vec3 pos, vec3 sun_dir, float time) {
 
     // sharp shadow falloff
     float shadowMask = smoothstep(0.0, 0.4, density);
-
     return mix(1.0, 0.1, shadowMask);
 }
 
