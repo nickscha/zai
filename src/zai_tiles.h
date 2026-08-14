@@ -32,7 +32,6 @@ typedef struct zai_tiles
     i32 tile_x[ZAI_TILES_TOTAL];
     i32 tile_z[ZAI_TILES_TOTAL];
     i32 tile_lod[ZAI_TILES_TOTAL];
-    u8 tile_edge_mask[ZAI_TILES_TOTAL]; /* Bitmask for lower LOD neighbors */
 
     /* Sparse Dirty flag tracking */
     u16 dirty_indices[ZAI_TILES_TOTAL]; /* Which index ot the tile_x/z is marked dirty */
@@ -70,33 +69,6 @@ ZAI_API ZAI_INLINE i32 zai_tile_lod(i32 x, i32 z, i32 center_x, i32 center_z)
     i32 distance = zai_maxi(dx, dz);
 
     return distance / 2;
-}
-
-ZAI_API ZAI_INLINE u8 zai_tile_edge_mask(i32 x, i32 z, i32 center_x, i32 center_z, i32 current_lod)
-{
-    u8 mask = ZAI_EDGE_NONE;
-
-    if (zai_tile_lod(x, z - 1, center_x, center_z) > current_lod)
-    {
-        mask |= ZAI_EDGE_NORTH;
-    }
-
-    if (zai_tile_lod(x + 1, z, center_x, center_z) > current_lod)
-    {
-        mask |= ZAI_EDGE_EAST;
-    }
-
-    if (zai_tile_lod(x, z + 1, center_x, center_z) > current_lod)
-    {
-        mask |= ZAI_EDGE_SOUTH;
-    }
-
-    if (zai_tile_lod(x - 1, z, center_x, center_z) > current_lod)
-    {
-        mask |= ZAI_EDGE_WEST;
-    }
-
-    return mask;
 }
 
 ZAI_API ZAI_INLINE u8 zai_get_rendered_edge_mask(zai_tiles *t, i32 *tile_rendered_lod, u32 tile_idx)
@@ -238,7 +210,6 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
             t->tile_x[i] = x;
             t->tile_z[i] = z;
             t->tile_lod[i] = zai_tile_lod(x, z, camera_tile_x, camera_tile_z);
-            t->tile_edge_mask[i] = zai_tile_edge_mask(x, z, camera_tile_x, camera_tile_z, t->tile_lod[i]);
             t->dirty_indices[t->dirty_indices_count++] = (u16)i;
         }
     }
@@ -347,14 +318,6 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
     {
         i32 distance_old = t->tile_lod[i];
         i32 distance_new = zai_tile_lod(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z);
-
-        u8 mask_old = t->tile_edge_mask[i];
-        u8 mask_new = zai_tile_edge_mask(t->tile_x[i], t->tile_z[i], camera_tile_x, camera_tile_z, distance_new);
-
-        if (mask_old != mask_new)
-        {
-            t->tile_edge_mask[i] = mask_new;
-        }
 
         if (distance_old != distance_new)
         {
