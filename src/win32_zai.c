@@ -2394,6 +2394,7 @@ ZAI_API void zai_render_height_texture(win32_zai_state *state, shader_tile_hm *t
   glUniform3f(tile_hm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
   glUniform1f(tile_hm_shader->loc_tile_size, (f32)tile_size);
   glUniform1f(tile_hm_shader->loc_texture_size, (f32)size);
+  
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
@@ -2411,8 +2412,10 @@ ZAI_API void zai_render_normal_texture(win32_zai_state *state, shader_tile_nm *t
   glUniform1f(tile_nm_shader->loc_texture_size, (f32)size);
   glUniform1f(tile_nm_shader->loc_stamped_heightmap, 0);
   glUniform1f(tile_nm_shader->loc_stamped_heightmap_size, heightmap_texture_size);
+
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, heightmap_texture);
+
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
