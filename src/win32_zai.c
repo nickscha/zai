@@ -2394,7 +2394,7 @@ ZAI_API void zai_render_height_texture(win32_zai_state *state, shader_tile_hm *t
   glUniform3f(tile_hm_shader->loc_tile_offset, tileWorldX, tileWorldZ, 0.0f);
   glUniform1f(tile_hm_shader->loc_tile_size, (f32)tile_size);
   glUniform1f(tile_hm_shader->loc_texture_size, (f32)size);
-  
+
   glDrawArrays(GL_TRIANGLES, 0, 3);
 
   glViewport(0, 0, (i32)state->platform_state.window.width, (i32)state->platform_state.window.height);
@@ -2662,6 +2662,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       {
         glGenTextures(1, &tile_tex[tile_idx]);
       }
+
+      /*TODO(nickscha): Only update when lod change but not when only edge mask changes */
       glBindTexture(GL_TEXTURE_2D, tile_tex[tile_idx]);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, (i32)height_tex_size, (i32)height_tex_size, 0, GL_RED, GL_FLOAT, NULL);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -2674,6 +2676,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       {
         glGenTextures(1, &tile_normal_tex[tile_idx]);
       }
+      /*TODO(nickscha): Only update when lod change but not when only edge mask changes */
       glBindTexture(GL_TEXTURE_2D, tile_normal_tex[tile_idx]);
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, (i32)normal_tex_size, (i32)normal_tex_size, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
