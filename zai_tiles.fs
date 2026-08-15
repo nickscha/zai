@@ -7,6 +7,7 @@ in vec3 v_worldPos;
 out vec4 FragColor;
 
 uniform vec3 iResolution;
+uniform vec3 iMouse;
 uniform float iTime;
 uniform vec3 sunDir;
 uniform vec3 iCamera;

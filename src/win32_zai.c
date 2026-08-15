@@ -950,6 +950,7 @@ typedef struct shader_tiles
   i32 loc_normalmap;
   i32 loc_iResolution;
   i32 loc_iTime;
+  i32 loc_iMouse;
   i32 loc_camera;
   i32 loc_sun_dir;
   i32 loc_camera_view_dir;
@@ -2480,6 +2481,7 @@ ZAI_API void zai_tile_load_shader(shader_tiles *tiles_shader)
 
     tiles_shader->loc_iResolution = glGetUniformLocation(tiles_shader->header.program, "iResolution");
     tiles_shader->loc_iTime = glGetUniformLocation(tiles_shader->header.program, "iTime");
+    tiles_shader->loc_iMouse = glGetUniformLocation(tiles_shader->header.program, "iMouse");
     tiles_shader->loc_sun_dir = glGetUniformLocation(tiles_shader->header.program, "sunDir");
     tiles_shader->loc_camera = glGetUniformLocation(tiles_shader->header.program, "iCamera");
     tiles_shader->loc_camera_view_dir = glGetUniformLocation(tiles_shader->header.program, "iViewDir");
@@ -2882,6 +2884,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniformMatrix4fv(tiles_shader.loc_view_projection, 1, GL_FALSE, mvp.e);
     glUniform3f(tiles_shader.loc_iResolution, (f32)state->platform_state.window.width, (f32)state->platform_state.window.height, 1.0f);
     glUniform1f(tiles_shader.loc_iTime, (f32)state->platform_state.timing.time_elapsed);
+    glUniform3f(tiles_shader.loc_iMouse, (f32)state->platform_state.input.mouse.x, (f32)state->platform_state.input.mouse.y, 0.0f);
     glUniform3f(tiles_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
