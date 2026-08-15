@@ -18,12 +18,12 @@ void main()
 
     v_uv = vec2(v_x, v_z) / (u_grid_res - 1.0);
 
-    vec2 local_pos = (vec2(v_x, v_z) / (u_grid_res - 1.0) - vec2(0.5)) * u_tile_size;
+    vec2 local_pos = (v_uv - vec2(0.5)) * u_tile_size;
     vec2 world_pos = local_pos + (u_tile_offset.xy * u_tile_size);
 
     float height = texelFetch(u_heightmap, ivec2(v_x, v_z), 0).r;
     
-    gl_Position     = u_vp * vec4(world_pos.x, height, world_pos.y, 1.0);
     v_is_dirty_pass = u_is_dirty;
     v_worldPos      = vec3(world_pos.x, height, world_pos.y);
+    gl_Position     = u_vp * vec4(v_worldPos, 1.0);
 }
