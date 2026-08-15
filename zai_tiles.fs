@@ -208,14 +208,13 @@ void main()
     //light += skyDome * zenith * 0.6 * cavityAO * ambientDrop;
     //light += bounce * zenith * 0.2 * ambientDrop;
 
-    /* ground bounce coloring
+    /* Ground bounce coloring */
     float up = max(normal.y, 0.0);
     float down = max(-normal.y, 0.0);
     vec3 skyLight = mix(vec3(0.03, 0.035, 0.04), zenith, up);
     vec3 groundBounce = vec3(0.025, 0.018, 0.012) * down;
     light += skyLight * 0.6;
     light += groundBounce;
-    */
 
     vec3 rayDir = normalize(v_worldPos - iCamera);
     float dist = length(v_worldPos - iCamera);
@@ -231,23 +230,23 @@ void main()
     totalSpec = mix(totalSpec, snowSpec, snowBlend);
     light += specAmount * totalSpec * sunLightCol * cloudShadow;
     
-    vec3 col = mate * light;
-    
+    // Fog calculation
     vec3 fogCol = getFogColor(rayDir);
     float distFog = 1.0 - exp(-dist * 0.00015);
     float heightFog = exp(-v_worldPos.y * 0.015);
     float totalFog = clamp(distFog * heightFog, 0.0, 1.0);
 
+    vec3 col = mate * light;
+
     col = mix(col, fogCol, totalFog);
 
-    // far terrain less saturated
+    // Far terrain less saturated
     float distant = smoothstep(100.0, 500.0, dist);
     float luminance =  dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, vec3(luminance), distant * 0.15);
 
-    col = pow(col, vec3(0.4545)); // Gamma Correction
-
-    //col = vec3(cloudShadow);
+    // Gamma Correction
+    col = pow(col, vec3(0.4545));
 
     if (visualization_mode < 0.5f) {
         FragColor = vec4(col, 1.0);
