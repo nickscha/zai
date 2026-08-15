@@ -216,10 +216,21 @@ void main()
     light += groundBounce;
     */
 
-    vec3 col = mate * light;
-
     vec3 rayDir = normalize(v_worldPos - iCamera);
     float dist = length(v_worldPos - iCamera);
+
+    // Specular highlighting
+    vec3 viewDir = -rayDir;
+    vec3 halfVector = normalize(sDir + viewDir);
+    float specAmount = pow(max(dot(normal, halfVector), 0.0), 16.0); // 16.0 = shininess
+    float rockSpec = matRock.r * 0.5;
+    float snowSpec = snowBlend * 0.8;
+    float grassSpec = 0.0;           
+    float totalSpec = mix(rockSpec, rockSpec, grassBlend);
+    totalSpec = mix(totalSpec, snowSpec, snowBlend);
+    light += specAmount * totalSpec * sunLightCol * cloudShadow;
+    
+    vec3 col = mate * light;
     
     vec3 fogCol = getFogColor(rayDir);
     float distFog = 1.0 - exp(-dist * 0.00015);
