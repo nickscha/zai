@@ -171,8 +171,8 @@ void main()
     float dayAmount = clamp(sunDir.y * 0.5 + 0.5, 0.0, 1.0);
     float sunsetAmount = exp(-abs(sunDir.y) * 7.0);
 
-    vec3 sDir = normalize(sunDir);
-    vec3 mDir = normalize(-sunDir);
+    vec3 sDir = sunDir;
+    vec3 mDir = -sunDir;
 
     float wrap = 0.2; 
     float sunDif = max(dot(normal, sDir) + wrap, 0.0) / (1.0 + wrap);
@@ -191,7 +191,7 @@ void main()
     zenith = mix(zenith, vec3(0.70, 0.25, 0.35), sunsetAmount);
 
     float skyDome = smoothstep(-0.2, 0.2, normal.y);
-    float bounce = max(dot(normal, normalize(vec3(-sDir.x, 0.0, -sDir.z))), 0.0);
+    float bounce = max(dot(normal, vec3(-sDir.x, 0.0, -sDir.z)), 0.0);
     float cavityAO = smoothstep(-0.2, 0.8, normal.y);
 
     float cloudShadow = getCloudShadow(v_worldPos, sDir, iTime);
