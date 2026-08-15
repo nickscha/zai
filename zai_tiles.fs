@@ -104,10 +104,12 @@ float cloudValueNoise(vec2 p) {
 }
 
 float getCloudShadow(vec3 pos, vec3 sun_dir, float time) {
-    if (sun_dir.y < 0.001) return 1.0;
+    if (sun_dir.y < 0.0) return 1.0;
+
+    float safeSunY = max(sun_dir.y, 0.05); 
 
     float cloudHeight = 1200.0;
-    float t = (cloudHeight - pos.y) / sun_dir.y;
+    float t = (cloudHeight - pos.y) / safeSunY;
     
     if (t < 0.0) return 1.0; 
 
@@ -131,10 +133,10 @@ float getCloudShadow(vec3 pos, vec3 sun_dir, float time) {
 
     density = smoothstep(0.38, 0.75, density);
 
-    //return mix(1.0, 0.05, density); 
-
-    // sharp shadow falloff
     float shadowMask = smoothstep(0.0, 0.4, density);
+    float horizonFade = smoothstep(0.0, 0.15, sun_dir.y);
+    shadowMask *= horizonFade;
+
     return mix(1.0, 0.1, shadowMask);
 }
 
