@@ -313,7 +313,7 @@ ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 ca
         }
     }
 
-    /* Distance and Edge Mask Calculation */
+    /* Distance Calculation */
     for (i = 0; i < ZAI_TILES_TOTAL; ++i)
     {
         i32 distance_old = t->tile_lod[i];
