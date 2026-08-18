@@ -256,5 +256,7 @@ void main()
         FragColor = v_is_dirty_pass > 0.5 ? vec4(1.0, 0.1, 0.1, 1.0) : vec4(col, 1.0);
     }  else if (visualization_mode < 3.5f) {
         FragColor = vec4(cloudShadow, cloudShadow, cloudShadow, 1.0);
-    }
+    } else if (visualization_mode < 4.5f) {
+        FragColor = vec4(normal * 0.5 + 0.5, 1.0);
+    } 
 }

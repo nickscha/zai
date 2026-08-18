@@ -2871,7 +2871,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     {
       visualization_mode++;
 
-      if (visualization_mode > 6)
+      if (visualization_mode > 4)
       {
         visualization_mode = 0;
       }

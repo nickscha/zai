@@ -6,6 +6,7 @@ uniform float u_is_dirty;
 uniform float u_tile_size;
 uniform float u_grid_res;
 uniform sampler2D u_heightmap;
+uniform float visualization_mode; /* just for testing */
 
 out float v_is_dirty_pass;
 out vec2 v_uv;
@@ -22,6 +23,10 @@ void main()
     vec2 world_pos = local_pos + (u_tile_offset.xy * u_tile_size);
 
     float height = texelFetch(u_heightmap, ivec2(v_x, v_z), 0).r;
+
+    if (visualization_mode > 3.5 && visualization_mode < 4.5) {
+        height = 0.0;
+    }
     
     v_is_dirty_pass = u_is_dirty;
     v_worldPos      = vec3(world_pos.x, height, world_pos.y);
