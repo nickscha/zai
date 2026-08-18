@@ -68,6 +68,7 @@ ZAI_API ZAI_INLINE i32 zai_tile_lod(i32 x, i32 z, i32 center_x, i32 center_z)
     i32 dz = zai_absi(z - center_z);
     i32 distance = zai_maxi(dx, dz);
 
+    /* TODO(nickscha): apply better distance distribution */
     return distance / 2;
 }
 
