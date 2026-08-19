@@ -2665,7 +2665,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         glGenTextures(1, &tile_tex[tile_idx]);
       }
 
-      /* TODO(nickscha): Only update when lod change but not when only edge mask changes */
       /* TODO(nickscha): Allocate tiles texture pool once and then reuse from pool       */
       if (tile_rendered_lod[tile_idx] != tile_lod)
       {
@@ -2683,7 +2682,6 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         glGenTextures(1, &tile_normal_tex[tile_idx]);
       }
 
-      /* TODO(nickscha): Only update when lod change but not when only edge mask changes */
       /* TODO(nickscha): Allocate tiles texture pool once and then reuse from pool       */
       /* TODO(nickscha): Far away normal maps only need RG8 to save memory               */
       if (tile_rendered_lod[tile_idx] != tile_lod)
