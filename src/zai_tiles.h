@@ -13,7 +13,7 @@
 #define ZAI_TILES_TOTAL (ZAI_TILES_PER_SIDE * ZAI_TILES_PER_SIDE)
 
 /* Edge Mask */
-#define ZAI_EDGE_NONE 0x00
+#define ZAI_EDGE_NONE 0
 #define ZAI_EDGE_NORTH 1 << 0
 #define ZAI_EDGE_SOUTH 1 << 1
 #define ZAI_EDGE_WEST 1 << 2
@@ -202,6 +202,7 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
     t->camera_z = camera_tile_z - 424242; /* force update  */
     t->dirty_indices_count = 0;
 
+    /* Mark all tiles dirty and calculate lod distance */
     for (z = t->origin_z; z < t->origin_z + ZAI_TILES_PER_SIDE; ++z)
     {
         for (x = t->origin_x; x < t->origin_x + ZAI_TILES_PER_SIDE; ++x)
