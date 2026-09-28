@@ -2649,7 +2649,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   /* Process dirty tiles */
   ZAI_PROFILER_BEGIN(tile_process_dirty);
   {
-    i32 updates_per_frame = 2;
+    i32 updates_per_frame = 4;
 
     while (updates_per_frame > 0 && t.dirty_indices_count > 0)
     {
