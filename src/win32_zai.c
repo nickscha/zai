@@ -2372,8 +2372,8 @@ ZAI_API void zai_render_terrain(win32_zai_state *state, zai_camera *camera, zai_
   ZAI_PROFILER_END(render_terrain);
 }
 
-#define ZAI_TILE_SIZE 256.0f
-#define ZAI_GRID_SIZE 65
+#define ZAI_TILE_WORLD_SIZE 256.0f
+#define ZAI_TILE_GRID_SIZE 65
 
 ZAI_API u32 zai_create_height_fbo(u32 tex)
 {
@@ -2611,7 +2611,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
       for (i = 0; i < LOD_COUNT; ++i)
       {
-        i32 grid_resolution = ((ZAI_GRID_SIZE - 1) / (1 << (u32)i)) + 1;
+        i32 grid_resolution = ((ZAI_TILE_GRID_SIZE - 1) / (1 << (u32)i)) + 1;
 
         for (mask = 0; mask < 16; ++mask)
         {
@@ -2638,8 +2638,8 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
   }
 
   /* Update camera tile based on camera world position */
-  camera_tile_x = (i32)zai_floorf((camera->position.x + ZAI_TILE_SIZE * 0.5f) / ZAI_TILE_SIZE);
-  camera_tile_z = (i32)zai_floorf((camera->position.z + ZAI_TILE_SIZE * 0.5f) / ZAI_TILE_SIZE);
+  camera_tile_x = (i32)zai_floorf((camera->position.x + ZAI_TILE_WORLD_SIZE * 0.5f) / ZAI_TILE_WORLD_SIZE);
+  camera_tile_z = (i32)zai_floorf((camera->position.z + ZAI_TILE_WORLD_SIZE * 0.5f) / ZAI_TILE_WORLD_SIZE);
 
   /* Check for new dirty tiles */
   ZAI_PROFILER_BEGIN(tile_update);
@@ -2656,7 +2656,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       u32 last_idx = t.dirty_indices_count - 1;
       u32 tile_idx = t.dirty_indices[last_idx];
       i32 tile_lod = t.tile_lod[tile_idx];
-      u32 height_tex_size = (u32)((ZAI_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
+      u32 height_tex_size = (u32)((ZAI_TILE_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
       u32 normal_tex_size = 1024 / (1 << (u32)tile_lod);
 
       /* Height Texture */
@@ -2705,7 +2705,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       }
 
       glBindVertexArray(tile_vao);
-      zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_SIZE, tile_fbo[tile_idx], height_tex_size,
+      zai_render_height_texture(state, &tiles_hm_shader, ZAI_TILE_WORLD_SIZE, tile_fbo[tile_idx], height_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx]);
 
       /*
@@ -2716,7 +2716,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
       */
       if (t.tile_x[tile_idx] == 0 && t.tile_z[tile_idx] == 0)
       {
-        f32 cpu_heights[ZAI_GRID_SIZE * ZAI_GRID_SIZE];
+        f32 cpu_heights[ZAI_TILE_GRID_SIZE * ZAI_TILE_GRID_SIZE];
         u32 x, z;
 
         glBindFramebuffer(GL_FRAMEBUFFER, tile_fbo[tile_idx]);
@@ -2742,9 +2742,9 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
 
         /* Apply stamps */
         {
-          f32 tile_origin_x = (f32)t.tile_x[tile_idx] * ZAI_TILE_SIZE;
-          f32 tile_origin_z = (f32)t.tile_z[tile_idx] * ZAI_TILE_SIZE;
-          f32 texel_step = ZAI_TILE_SIZE / (f32)(height_tex_size - 1);
+          f32 tile_origin_x = (f32)t.tile_x[tile_idx] * ZAI_TILE_WORLD_SIZE;
+          f32 tile_origin_z = (f32)t.tile_z[tile_idx] * ZAI_TILE_WORLD_SIZE;
+          f32 texel_step = ZAI_TILE_WORLD_SIZE / (f32)(height_tex_size - 1);
 
           typedef enum
           {
@@ -2766,26 +2766,26 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
           zai_stamp test_stamps[3];
           u32 test_stamp_count = 3;
 
-          f32 tile_center_x = tile_origin_x + (ZAI_TILE_SIZE * 0.5f);
-          f32 tile_center_z = tile_origin_z + (ZAI_TILE_SIZE * 0.5f);
-          f32 offset = ZAI_TILE_SIZE * 0.25f;
+          f32 tile_center_x = tile_origin_x + (ZAI_TILE_WORLD_SIZE * 0.5f);
+          f32 tile_center_z = tile_origin_z + (ZAI_TILE_WORLD_SIZE * 0.5f);
+          f32 offset = ZAI_TILE_WORLD_SIZE * 0.25f;
 
           test_stamps[0].type = STAMP_DIG;
           test_stamps[0].world_x = tile_center_x - offset;
           test_stamps[0].world_z = tile_center_z;
-          test_stamps[0].radius = ZAI_TILE_SIZE * 0.15f;
+          test_stamps[0].radius = ZAI_TILE_WORLD_SIZE * 0.15f;
           test_stamps[0].strength = 10.0f;
 
           test_stamps[1].type = STAMP_RAISE;
           test_stamps[1].world_x = tile_center_x + offset;
           test_stamps[1].world_z = tile_center_z;
-          test_stamps[1].radius = ZAI_TILE_SIZE * 0.15f;
+          test_stamps[1].radius = ZAI_TILE_WORLD_SIZE * 0.15f;
           test_stamps[1].strength = 10.0f;
 
           test_stamps[2].type = STAMP_FLATTEN;
           test_stamps[2].world_x = tile_center_x;
           test_stamps[2].world_z = tile_center_z;
-          test_stamps[2].radius = ZAI_TILE_SIZE * 0.18f;
+          test_stamps[2].radius = ZAI_TILE_WORLD_SIZE * 0.18f;
           test_stamps[2].strength = 1.0f;      /* 1.0 = hard flatten, lower = soft blend */
           test_stamps[2].target_height = 5.0f; /* Flatten target elevation plateau */
 
@@ -2842,7 +2842,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, (i32)height_tex_size, (i32)height_tex_size, GL_RED, GL_FLOAT, cpu_heights);
       }
 
-      zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
+      zai_render_normal_texture(state, &tiles_nm_shader, ZAI_TILE_WORLD_SIZE, tile_normal_fbo[tile_idx], normal_tex_size,
                                 (f32)t.tile_x[tile_idx], (f32)t.tile_z[tile_idx], tile_tex[tile_idx], (f32)height_tex_size);
 
       /* Mark that texture update is complete for this LOD */
@@ -2892,7 +2892,7 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
     glUniform3f(tiles_shader.loc_camera, camera->position.x, camera->position.y, camera->position.z);
     glUniform3f(tiles_shader.loc_camera_view_dir, camera->forward.x, camera->forward.y, camera->forward.z);
     glUniform3f(tiles_shader.loc_sun_dir, sun_dir.x, sun_dir.y, sun_dir.z);
-    glUniform1f(tiles_shader.loc_tile_size, ZAI_TILE_SIZE);
+    glUniform1f(tiles_shader.loc_tile_size, ZAI_TILE_WORLD_SIZE);
     glUniform1f(tiles_shader.loc_visualization_mode, (f32)visualization_mode);
     glUniform1i(tiles_shader.loc_heightmap, 0);
     glUniform1i(tiles_shader.loc_normalmap, 1);
@@ -2911,14 +2911,14 @@ ZAI_API void zai_render_tiles(win32_zai_state *state, zai_camera *camera, zai_ve
         continue;
       }
 
-      if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_SIZE, -100.0f, 600.0f))
+      if (!zai_tile_is_visible(&frustum, (f32)t.tile_x[i], (f32)t.tile_z[i], ZAI_TILE_WORLD_SIZE, -100.0f, 600.0f))
       {
         continue;
       }
 
       tile_lod = tile_rendered_lod[i];
       mask = zai_get_rendered_edge_mask(&t, tile_rendered_lod, i);
-      grid_res = (u32)((ZAI_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
+      grid_res = (u32)((ZAI_TILE_GRID_SIZE - 1) / (1 << (u32)tile_lod)) + 1;
 
       glUniform3f(tiles_shader.loc_tile_offset, (f32)t.tile_x[i], (f32)t.tile_z[i], 0.0f);
       glUniform1f(tiles_shader.loc_is_dirty, (f32)zai_tile_is_dirty(&t, i));
