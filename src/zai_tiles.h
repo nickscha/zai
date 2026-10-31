@@ -10,6 +10,7 @@
 #ifndef ZAI_TILES_PER_SIDE
 #define ZAI_TILES_PER_SIDE 13
 #endif
+#define ZAI_TILES_HALF ZAI_TILES_PER_SIDE / 2;
 #define ZAI_TILES_TOTAL (ZAI_TILES_PER_SIDE * ZAI_TILES_PER_SIDE)
 
 /* Edge Mask */
@@ -194,10 +195,9 @@ ZAI_API ZAI_INLINE void zai_tiles_sort_dirty_by_distance(zai_tiles *t)
 ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
     i32 x, z;
-    i32 half = ZAI_TILES_PER_SIDE / 2;
 
-    t->origin_x = camera_tile_x - half;
-    t->origin_z = camera_tile_z - half;
+    t->origin_x = camera_tile_x - ZAI_TILES_HALF;
+    t->origin_z = camera_tile_z - ZAI_TILES_HALF;
     t->camera_x = camera_tile_x - 424242; /* force update */
     t->camera_z = camera_tile_z - 424242; /* force update  */
     t->dirty_indices_count = 0;
@@ -222,11 +222,13 @@ ZAI_API ZAI_INLINE void zai_tiles_init(zai_tiles *t, i32 camera_tile_x, i32 came
 /* Toroidal wrap around */
 ZAI_API ZAI_INLINE void zai_tiles_update(zai_tiles *t, i32 camera_tile_x, i32 camera_tile_z)
 {
-    i32 half = ZAI_TILES_PER_SIDE / 2;
-    i32 new_origin_x = camera_tile_x - half;
-    i32 new_origin_z = camera_tile_z - half;
     i32 x, z;
     u32 i;
+    i32 new_origin_x;
+    i32 new_origin_z;
+
+    new_origin_x = camera_tile_x - ZAI_TILES_HALF;
+    new_origin_z = camera_tile_z - ZAI_TILES_HALF;
 
     /* If camera position hasn't changed there is nothing to calculate */
     if (t->camera_x == camera_tile_x && t->camera_z == camera_tile_z)
